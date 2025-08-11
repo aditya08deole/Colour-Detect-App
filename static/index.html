@@ -3,85 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Color Palette Pro - Interactive Color Detector</title>
+    <title>Color Picker Pro - Advanced Color Detector</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
     <style>
         :root {
-            --bg-color: #0d1117;
-            --primary-color: #161b22;
-            --secondary-color: #21262d;
-            --accent-color: #58a6ff;
-            --font-color: #c9d1d9;
-            --border-color: #30363d;
+            --bg-color: #f8f9fa;
+            --primary-color: #ffffff;
+            --secondary-color: #e9ecef;
+            --accent-color: #007bff;
+            --font-color: #212529;
+            --border-color: #dee2e6;
         }
 
         body {
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Inter', sans-serif;
             background-color: var(--bg-color);
             color: var(--font-color);
             margin: 0;
-            padding: 2rem;
             display: flex;
             justify-content: center;
-            align-items: flex-start;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            width: 100%;
+            max-width: 1600px;
             min-height: 100vh;
         }
 
-        .container {
-            background: var(--primary-color);
+        .sidebar {
+            background-color: var(--primary-color);
+            border-right: 1px solid var(--border-color);
             padding: 2rem;
-            border-radius: 10px;
-            border: 1px solid var(--border-color);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-            max-width: 1000px;
-            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
         }
-
-        header {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        header h1 {
-            color: white;
+        .sidebar h2 {
+            font-size: 1.5rem;
             font-weight: 600;
             margin: 0;
         }
-        header p {
-            margin-top: 0.5rem;
-            opacity: 0.7;
+        .sidebar .logo {
+            font-weight: 700;
+            font-size: 1.8rem;
+        }
+        .sidebar .logo span {
+            color: var(--accent-color);
         }
 
         .main-content {
-            display: grid;
-            grid-template-columns: 1fr;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
             gap: 2rem;
         }
-        @media (min-width: 800px) {
-            .main-content {
-                grid-template-columns: 2fr 1fr;
-            }
-        }
 
-        .canvas-container {
-            background: var(--bg-color);
-            border-radius: 8px;
+        .canvas-wrapper {
+            background: var(--primary-color);
+            border-radius: 12px;
             border: 1px solid var(--border-color);
             padding: 1rem;
             display: flex;
+            flex-direction: column;
+            height: 60vh;
+        }
+        
+        .canvas-container {
+            flex-grow: 1;
+            overflow: hidden;
+            position: relative;
+            display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 400px;
-            position: relative;
+            background-color: var(--secondary-color);
+            border-radius: 8px;
         }
 
         canvas {
-            border-radius: 6px;
             cursor: crosshair;
-            max-width: 100%;
-            height: auto;
-            display: none; /* Hidden by default */
+            display: none;
+            max-width: none;
         }
         
         .upload-area {
@@ -94,162 +101,167 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            transition: background-color 0.3s, border-color 0.3s;
+            transition: all 0.3s ease;
         }
-        .upload-area.dragover {
-            border-color: var(--accent-color);
-            background-color: var(--secondary-color);
-        }
-        .upload-area p {
-            margin: 0.5rem 0 1rem 0;
-            font-size: 0.9rem;
-            opacity: 0.6;
-        }
+        .upload-area.dragover { border-color: var(--accent-color); background-color: #eef5ff; }
 
         #imageLoader { display: none; }
 
         .upload-label {
             cursor: pointer;
             background-color: var(--accent-color);
-            color: #fff;
+            color: white;
             padding: 10px 20px;
             border-radius: 6px;
             font-weight: 500;
-            transition: transform 0.2s;
+            transition: background-color 0.2s;
         }
-        .upload-label:hover { transform: scale(1.05); }
+        .upload-label:hover { background-color: #0056b3; }
 
-        .results-container {
-            background: var(--bg-color);
+        .controls-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+        }
+
+        .zoom-controls button {
+            background: var(--secondary-color);
+            color: var(--font-color);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            width: 36px; height: 36px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .zoom-controls button:hover { background-color: #ced4da; }
+
+        .results-card {
+            background: var(--primary-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+        }
+        .results-card.visible { opacity: 1; transform: translateY(0); }
+        
+        .results-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        #color-box {
+            width: 80px;
+            height: 80px;
             border-radius: 8px;
             border: 1px solid var(--border-color);
-            padding: 1.5rem;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+        }
+        #color-details p { margin: 0.25rem 0; font-size: 1rem; }
+        #color-details strong { font-weight: 600; }
+        .copy-btn {
+            background: none; border: none; color: var(--accent-color);
+            cursor: pointer; font-size: 0.8rem; opacity: 0.7;
         }
 
-        #results-card {
-            display: none; /* Hidden by default */
-            flex-direction: column;
-            align-items: center;
-            gap: 1.5rem;
-            width: 100%;
-            text-align: center;
-            opacity: 0;
-            transition: opacity 0.5s ease-in-out;
+        #history-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            max-height: 400px;
+            overflow-y: auto;
         }
-        #results-card.visible {
+        #history-list li {
             display: flex;
-            opacity: 1;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
         }
-
-        #color-box {
-            width: 120px;
-            height: 120px;
+         #history-list li:hover { background-color: var(--secondary-color); }
+        .history-swatch {
+            width: 30px;
+            height: 30px;
             border-radius: 50%;
-            border: 4px solid white;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            transition: background-color 0.3s;
+            flex-shrink: 0;
+            border: 1px solid var(--border-color);
         }
-
-        #color-details p {
-            margin: 0.5rem 0;
-            font-size: 1rem;
-            font-weight: 500;
-        }
-        #color-details strong {
-            color: white;
-            opacity: 0.8;
-            font-weight: 400;
-            margin-right: 0.5rem;
-        }
+        .history-info { font-size: 0.9rem; }
 
         .loader-container {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(13, 17, 23, 0.7);
-            display: none; /* Hidden by default */
-            justify-content: center;
-            align-items: center;
-            border-radius: 8px;
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            display: none; justify-content: center; align-items: center;
+            z-index: 10;
         }
         .loader {
-            border: 5px solid var(--border-color);
+            border: 5px solid var(--secondary-color);
             border-radius: 50%;
             border-top: 5px solid var(--accent-color);
-            width: 50px;
-            height: 50px;
+            width: 50px; height: 50px;
             animation: spin 1.5s linear infinite;
         }
-        
-        #error-message {
-            color: #ff7b72;
-            background-color: rgba(248, 81, 73, 0.1);
-            border: 1px solid rgba(248, 81, 73, 0.2);
-            padding: 1rem;
-            border-radius: 6px;
-            display: none;
-            margin-top: 1rem;
-        }
 
-        footer {
-            text-align: center;
-            margin-top: 2rem;
-            font-size: 0.9rem;
-            opacity: 0.5;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <header>
-            <h1>Color Palette Pro</h1>
-            <p>Instantly identify any color from your images with a single click.</p>
-        </header>
-
-        <div class="main-content">
-            <div class="canvas-container">
-                <div id="upload-area" class="upload-area">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-cloud-arrow-up-fill" viewBox="0 0 16 16" style="color: var(--accent-color); opacity: 0.7;">
-                        <path d="M8 2a5.53 5.53 0 0 0-3.594 1.342c-.766.66-1.321 1.52-1.464 2.383C1.266 6.095 0 7.555 0 9.318 0 11.366 1.708 13 3.781 13h8.906C14.502 13 16 11.57 16 9.773c0-1.636-1.242-2.969-2.834-3.194C12.923 3.999 10.69 2 8 2zm2.354 5.146a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708l2-2a.5.5 0 0 1 .708 0l2 2z"/>
-                    </svg>
-                    <p>Drag & Drop Image Here</p>
-                    <label for="imageLoader" class="upload-label">Or Select File</label>
-                    <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/webp">
-                </div>
-                <canvas id="imageCanvas"></canvas>
-                <div id="loader-container" class="loader-container"><div class="loader"></div></div>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div>
+                <h1 class="logo">Color<span>Picker</span></h1>
+                <p>An advanced color detector.</p>
             </div>
-            
-            <div class="results-container">
+            <div id="results-container">
+                <h2>Current Selection</h2>
                 <div id="results-card">
-                    <div id="color-box"></div>
-                    <div id="color-details">
-                        <p><strong>Name:</strong> <span id="colorName">N/A</span></p>
-                        <p><strong>Hex:</strong> <span id="hexCode">N/A</span></p>
-                        <p><strong>RGB:</strong> <span id="rgbValue">N/A</span></p>
+                    <div class="results-header">
+                        <div id="color-box"></div>
+                        <div id="color-details">
+                            <p><strong>Name:</strong> <span id="colorName">N/A</span></p>
+                            <p><strong>Hex:</strong> <span id="hexCode">N/A</span> <button class="copy-btn" onclick="colorApp.copyToClipboard('#hexCode')">copy</button></p>
+                            <p><strong>RGB:</strong> <span id="rgbValue">N/A</span> <button class="copy-btn" onclick="colorApp.copyToClipboard('#rgbValue')">copy</button></p>
+                        </div>
                     </div>
                 </div>
-                <div id="error-message"></div>
             </div>
-        </div>
+            <div id="history-container">
+                <h2>History</h2>
+                <ul id="history-list">
+                    <li style="justify-content: center; opacity: 0.6;">No colors picked yet.</li>
+                </ul>
+            </div>
+        </aside>
+
+        <main class="main-content">
+            <div class="canvas-wrapper">
+                <div class="controls-header">
+                    <label for="imageLoader" class="upload-label">Upload New Image</label>
+                    <div class="zoom-controls">
+                        <button id="zoom-in" title="Zoom In">+</button>
+                        <button id="zoom-out" title="Zoom Out">-</button>
+                        <button id="reset-zoom" title="Reset">⟲</button>
+                    </div>
+                </div>
+                <div class="canvas-container" id="canvas-container">
+                    <div id="upload-area" class="upload-area">
+                        <p>Drag & Drop Image Here</p>
+                        <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/webp">
+                    </div>
+                    <canvas id="imageCanvas"></canvas>
+                    <div id="loader-container" class="loader-container"><div class="loader"></div></div>
+                </div>
+            </div>
+        </main>
     </div>
-    
-    <footer>
-        <p>&copy; 2025 Color Palette Pro. Designed for clarity and function.</p>
-    </footer>
 
     <script>
-        // Encapsulate logic in an object to avoid global variables
         const colorApp = {
+            // DOM Elements
             imageLoader: document.getElementById('imageLoader'),
             uploadArea: document.getElementById('upload-area'),
             canvas: document.getElementById('imageCanvas'),
@@ -260,18 +272,25 @@
             colorNameSpan: document.getElementById('colorName'),
             hexCodeSpan: document.getElementById('hexCode'),
             rgbValueSpan: document.getElementById('rgbValue'),
-            errorMessage: document.getElementById('error-message'),
+            historyList: document.getElementById('history-list'),
+            
+            // State
             currentImageFile: null,
+            panzoomInstance: null,
+            originalImage: null,
+            colorHistory: [],
 
             init() {
                 this.imageLoader.addEventListener('change', (e) => this.handleFiles(e.target.files));
                 this.setupDragAndDrop();
+                this.setupZoomControls();
                 this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
             },
 
             setupDragAndDrop() {
+                const preventDefaults = e => { e.preventDefault(); e.stopPropagation(); };
                 ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                    this.uploadArea.addEventListener(eventName, this.preventDefaults, false);
+                    this.uploadArea.addEventListener(eventName, preventDefaults, false);
                 });
                 ['dragenter', 'dragover'].forEach(eventName => {
                     this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.add('dragover'), false);
@@ -282,9 +301,10 @@
                 this.uploadArea.addEventListener('drop', (e) => this.handleFiles(e.dataTransfer.files), false);
             },
 
-            preventDefaults(e) {
-                e.preventDefault();
-                e.stopPropagation();
+            setupZoomControls() {
+                document.getElementById('zoom-in').addEventListener('click', () => this.panzoomInstance?.zoomIn());
+                document.getElementById('zoom-out').addEventListener('click', () => this.panzoomInstance?.zoomOut());
+                document.getElementById('reset-zoom').addEventListener('click', () => this.panzoomInstance?.reset());
             },
 
             handleFiles(files) {
@@ -293,64 +313,54 @@
                     this.currentImageFile = file;
                     const reader = new FileReader();
                     reader.onload = (event) => {
-                        const img = new Image();
-                        img.onload = () => {
-                            const maxWidth = 600;
-                            const scale = (img.width > maxWidth) ? maxWidth / img.width : 1;
-                            this.canvas.width = img.width * scale;
-                            this.canvas.height = img.height * scale;
-                            this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
+                        this.originalImage = new Image();
+                        this.originalImage.onload = () => {
+                            this.canvas.width = this.originalImage.width;
+                            this.canvas.height = this.originalImage.height;
+                            this.ctx.drawImage(this.originalImage, 0, 0);
                             
                             this.uploadArea.style.display = 'none';
                             this.canvas.style.display = 'block';
+                            
+                            if (this.panzoomInstance) this.panzoomInstance.destroy();
+                            this.panzoomInstance = Panzoom(this.canvas, { maxScale: 10, canvas: true });
+                            document.getElementById('canvas-container').addEventListener('wheel', this.panzoomInstance.zoomWithWheel);
                         }
-                        img.src = event.target.result;
+                        this.originalImage.src = event.target.result;
                     }
                     reader.readAsDataURL(file);
-                    this.hideResults();
-                } else {
-                    this.showError('Please upload a valid image file (PNG, JPG, etc.).');
                 }
             },
 
             handleCanvasClick(e) {
-                if (!this.currentImageFile) {
-                    this.showError('Please upload an image first.');
-                    return;
-                }
+                if (!this.currentImageFile || !this.panzoomInstance) return;
 
                 const rect = this.canvas.getBoundingClientRect();
-                const originalX = Math.round((e.clientX - rect.left) * (this.canvas.width / rect.width));
-                const originalY = Math.round((e.clientY - rect.top) * (this.canvas.height / rect.height));
+                const scale = this.panzoomInstance.getScale();
+                const x = (e.clientX - rect.left) / scale;
+                const y = (e.clientY - rect.top) / scale;
 
                 this.setLoading(true);
-                this.hideResults();
-
                 const formData = new FormData();
                 formData.append('image', this.currentImageFile);
-                formData.append('x', originalX);
-                formData.append('y', originalY);
+                formData.append('x', Math.round(x));
+                formData.append('y', Math.round(y));
 
                 fetch('/api/detect', { method: 'POST', body: formData })
-                    .then(response => {
-                        if (!response.ok) {
-                            return response.json().then(err => { throw new Error(err.detail || 'Server error'); });
-                        }
-                        return response.json();
-                    })
+                    .then(response => response.ok ? response.json() : response.json().then(err => Promise.reject(err)))
                     .then(data => {
                         this.setLoading(false);
                         this.displayResults(data);
+                        this.addToHistory(data);
                     })
                     .catch(error => {
                         this.setLoading(false);
-                        this.showError(error.message);
+                        alert(`Error: ${error.detail || 'Could not detect color.'}`);
                     });
             },
 
             setLoading(isLoading) {
                 this.loaderContainer.style.display = isLoading ? 'flex' : 'none';
-                this.canvas.style.cursor = isLoading ? 'wait' : 'crosshair';
             },
 
             displayResults(data) {
@@ -360,19 +370,44 @@
                 this.colorBox.style.backgroundColor = data.detected_rgb;
                 this.resultsCard.classList.add('visible');
             },
-
-            hideResults() {
-                this.resultsCard.classList.remove('visible');
-                this.errorMessage.style.display = 'none';
+            
+            addToHistory(data) {
+                // Avoid adding duplicates
+                const isDuplicate = this.colorHistory.some(c => c.hex_code === data.hex_code);
+                if (!isDuplicate) {
+                    this.colorHistory.unshift(data);
+                    if (this.colorHistory.length > 20) { // Limit history size
+                        this.colorHistory.pop();
+                    }
+                    this.renderHistory();
+                }
             },
 
-            showError(message) {
-                this.errorMessage.textContent = `⚠️ ${message}`;
-                this.errorMessage.style.display = 'block';
+            renderHistory() {
+                if (this.colorHistory.length === 0) return;
+                this.historyList.innerHTML = ''; // Clear list
+                this.colorHistory.forEach(color => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <div class="history-swatch" style="background-color: ${color.detected_rgb};"></div>
+                        <div class="history-info">
+                            <strong>${color.color_name}</strong><br>
+                            <span>${color.hex_code}</span>
+                        </div>
+                    `;
+                    li.onclick = () => this.displayResults(color);
+                    this.historyList.appendChild(li);
+                });
+            },
+
+            copyToClipboard(elementSelector) {
+                const text = document.querySelector(elementSelector).textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    alert(`Copied "${text}" to clipboard!`);
+                }, () => alert('Failed to copy text.'));
             }
         };
 
-        // Initialize the application
         colorApp.init();
     </script>
 </body>
