@@ -1,6 +1,6 @@
-streamlit
+fastapi
+uvicorn
 pandas
 numpy
 Pillow
-opencv-python-headless
-streamlit-drawable-canvas
+python-multipart

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Color Detector</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --primary-color: #16213e;
+            --secondary-color: #0f3460;
+            --accent-color: #e94560;
+            --font-color: #e0e0e0;
+            --card-bg: #1e1e3f;
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--font-color);
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .container {
+            background: var(--primary-color);
+            padding: 2.5rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            max-width: 900px;
+            width: 100%;
+            text-align: center;
+        }
+
+        header h1 {
+            color: white;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        header p {
+            color: var(--font-color);
+            margin-bottom: 2rem;
+            opacity: 0.8;
+        }
+
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+        }
+
+        @media (min-width: 768px) {
+            .main-content {
+                flex-direction: row;
+            }
+        }
+
+        .canvas-container {
+            flex: 2;
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 300px;
+        }
+
+        canvas {
+            border-radius: 8px;
+            cursor: crosshair;
+            max-width: 100%;
+            height: auto;
+        }
+        
+        .upload-area {
+            border: 2px dashed var(--secondary-color);
+            border-radius: 10px;
+            padding: 2rem;
+            width: 100%;
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+
+        .upload-area.dragover {
+            border-color: var(--accent-color);
+            background-color: var(--secondary-color);
+        }
+
+        #imageLoader {
+            display: none;
+        }
+
+        .upload-label {
+            cursor: pointer;
+            background-color: var(--accent-color);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+
+        .upload-label:hover {
+            background-color: #ff637f;
+        }
+
+        .results-container {
+            flex: 1;
+        }
+
+        #results-card {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            border-radius: 10px;
+            background-color: var(--card-bg);
+            transition: opacity 0.5s;
+        }
+
+        #color-box {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: 4px solid white;
+            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+        }
+
+        #color-details p {
+            margin: 0.5rem 0;
+            font-size: 1.1rem;
+        }
+        #color-details strong {
+            color: white;
+            opacity: 0.9;
+        }
+
+        .loader {
+            border: 5px solid var(--secondary-color);
+            border-radius: 50%;
+            border-top: 5px solid var(--accent-color);
+            width: 40px;
+            height: 40px;
+            animation: spin 1.5s linear infinite;
+            display: none;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>🎨 Color Palette Pro</h1>
+            <p>Instantly identify any color from your images with a single click.</p>
+        </header>
+
+        <div class="main-content">
+            <div class="canvas-container">
+                <div id="upload-area" class="upload-area">
+                    <label for="imageLoader" class="upload-label">Choose or Drop Image</label>
+                    <p style="margin-top: 1rem; opacity: 0.7;">Drag and drop an image file here</p>
+                    <input type="file" id="imageLoader" accept="image/png, image/jpeg">
+                </div>
+                <canvas id="imageCanvas" style="display:none;"></canvas>
+            </div>
+            <div class="results-container">
+                <div id="loader" class="loader"></div>
+                <div id="results-card">
+                    <div id="color-box"></div>
+                    <div id="color-details">
+                        <p><strong>Name:</strong> <span id="colorName">N/A</span></p>
+                        <p><strong>Hex:</strong> <span id="hexCode">N/A</span></p>
+                        <p><strong>RGB:</strong> <span id="rgbValue">N/A</span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const imageLoader = document.getElementById('imageLoader');
+        const uploadArea = document.getElementById('upload-area');
+        const canvas = document.getElementById('imageCanvas');
+        const ctx = canvas.getContext('2d');
+        const loader = document.getElementById('loader');
+        const resultsCard = document.getElementById('results-card');
+        const colorBox = document.getElementById('color-box');
+        const colorNameSpan = document.getElementById('colorName');
+        const hexCodeSpan = document.getElementById('hexCode');
+        const rgbValueSpan = document.getElementById('rgbValue');
+
+        let currentImageFile = null;
+
+        function handleFiles(files) {
+            const file = files[0];
+            if (file && file.type.startsWith('image/')) {
+                currentImageFile = file;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const maxWidth = 500;
+                        let scale = 1;
+                        if (img.width > maxWidth) {
+                            scale = maxWidth / img.width;
+                        }
+                        canvas.width = img.width * scale;
+                        canvas.height = img.height * scale;
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        
+                        uploadArea.style.display = 'none';
+                        canvas.style.display = 'block';
+                    }
+                    img.src = event.target.result;
+                }
+                reader.readAsDataURL(file);
+                resultsCard.style.display = 'none';
+            }
+        }
+
+        imageLoader.addEventListener('change', (e) => handleFiles(e.target.files));
+
+        // Drag and Drop Listeners
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'), false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'), false);
+        });
+
+        uploadArea.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files), false);
+
+        canvas.addEventListener('click', (e) => {
+            if (!currentImageFile) {
+                alert('Please upload an image first.');
+                return;
+            }
+
+            const rect = canvas.getBoundingClientRect();
+            const originalX = Math.round((e.clientX - rect.left) * (canvas.width / rect.width));
+            const originalY = Math.round((e.clientY - rect.top) * (canvas.height / rect.height));
+
+            loader.style.display = 'block';
+            resultsCard.style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('image', currentImageFile);
+            formData.append('x', originalX);
+            formData.append('y', originalY);
+
+            fetch('/api/detect', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                loader.style.display = 'none';
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                } else {
+                    colorNameSpan.textContent = data.color_name;
+                    hexCodeSpan.textContent = data.hex_code;
+                    rgbValueSpan.textContent = data.rgb;
+                    colorBox.style.backgroundColor = data.detected_rgb;
+                    resultsCard.style.display = 'flex';
+                }
+            })
+            .catch(error => {
+                loader.style.display = 'none';
+                console.error('Error:', error);
+                alert('An error occurred while detecting the color.');
+            });
+        });
+    </script>
+</body>
+</html>
