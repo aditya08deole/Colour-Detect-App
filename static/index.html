@@ -177,9 +177,10 @@
             display: flex;
             align-items: center;
             gap: 1rem;
-            padding: 0.75rem 0;
+            padding: 0.75rem;
             border-bottom: 1px solid var(--border-color);
             cursor: pointer;
+            border-radius: 4px;
         }
          #history-list li:hover { background-color: var(--secondary-color); }
         .history-swatch {
@@ -265,6 +266,7 @@
             imageLoader: document.getElementById('imageLoader'),
             uploadArea: document.getElementById('upload-area'),
             canvas: document.getElementById('imageCanvas'),
+            canvasContainer: document.getElementById('canvas-container'),
             ctx: document.getElementById('imageCanvas').getContext('2d'),
             loaderContainer: document.getElementById('loader-container'),
             resultsCard: document.getElementById('results-card'),
@@ -323,8 +325,11 @@
                             this.canvas.style.display = 'block';
                             
                             if (this.panzoomInstance) this.panzoomInstance.destroy();
-                            this.panzoomInstance = Panzoom(this.canvas, { maxScale: 10, canvas: true });
-                            document.getElementById('canvas-container').addEventListener('wheel', this.panzoomInstance.zoomWithWheel);
+                            this.panzoomInstance = Panzoom(this.canvas, {
+                                maxScale: 10,
+                                canvas: true,
+                            });
+                            this.canvasContainer.addEventListener('wheel', this.panzoomInstance.zoomWithWheel);
                         }
                         this.originalImage.src = event.target.result;
                     }
@@ -335,10 +340,16 @@
             handleCanvasClick(e) {
                 if (!this.currentImageFile || !this.panzoomInstance) return;
 
+                // **FIX:** Use the panzoom instance to get the correct coordinates
+                // This accounts for both panning (x/y movement) and scaling (zoom)
                 const rect = this.canvas.getBoundingClientRect();
+                const pan = this.panzoomInstance.getPan();
                 const scale = this.panzoomInstance.getScale();
-                const x = (e.clientX - rect.left) / scale;
-                const y = (e.clientY - rect.top) / scale;
+
+                // The formula to get the real coordinate on the image is:
+                // (mousePosition - elementOffset - pan) / scale
+                const x = (e.clientX - rect.left - pan.x) / scale;
+                const y = (e.clientY - rect.top - pan.y) / scale;
 
                 this.setLoading(true);
                 const formData = new FormData();
@@ -372,11 +383,10 @@
             },
             
             addToHistory(data) {
-                // Avoid adding duplicates
                 const isDuplicate = this.colorHistory.some(c => c.hex_code === data.hex_code);
                 if (!isDuplicate) {
                     this.colorHistory.unshift(data);
-                    if (this.colorHistory.length > 20) { // Limit history size
+                    if (this.colorHistory.length > 20) {
                         this.colorHistory.pop();
                     }
                     this.renderHistory();
@@ -385,7 +395,7 @@
 
             renderHistory() {
                 if (this.colorHistory.length === 0) return;
-                this.historyList.innerHTML = ''; // Clear list
+                this.historyList.innerHTML = '';
                 this.colorHistory.forEach(color => {
                     const li = document.createElement('li');
                     li.innerHTML = `
