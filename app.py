@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 from PIL import Image
 from streamlit_drawable_canvas import st_canvas
+import base64
+from io import BytesIO
 
 # --- Page Configuration ---
 st.set_page_config(
@@ -26,7 +28,7 @@ def load_color_data():
         csv = pd.read_csv('colors.csv', names=index, header=None)
         return csv
     except FileNotFoundError:
-        st.error("Error: 'colors.csv' not found. Please make sure the file is in the same directory.")
+        st.error("Error: 'colors.csv' not found. Please make sure the file is in the same directory as the app.")
         return None
 
 def get_color_name(R, G, B, csv_data):
@@ -37,10 +39,6 @@ def get_color_name(R, G, B, csv_data):
     if csv_data is None:
         return "Color data not available", "#FFFFFF"
 
-    minimum = float('inf')
-    cname = "N/A"
-    hex_value = "#000000"
-    
     # Vectorized calculation for performance
     # Calculate the sum of absolute differences for all colors at once
     distances = np.abs(csv_data[["R", "G", "B"]] - np.array([R, G, B])).sum(axis=1)
@@ -68,13 +66,13 @@ uploaded_file = st.sidebar.file_uploader("Choose an image...", type=["jpg", "jpe
 
 # Set a default image if none is uploaded
 if uploaded_file is None:
-    # Use a default placeholder image
     try:
         bg_image = Image.open('colorpic.jpg').convert('RGB')
         st.sidebar.info("Showing default image. Upload your own to get started!")
     except FileNotFoundError:
         st.sidebar.error("Default image 'colorpic.jpg' not found.")
-        bg_image = Image.new('RGB', (600, 400), (230, 230, 230)) # Grey placeholder
+        # Create a grey placeholder if the default image is missing
+        bg_image = Image.new('RGB', (600, 400), (230, 230, 230)) 
 else:
     bg_image = Image.open(uploaded_file).convert('RGB')
 
@@ -94,11 +92,12 @@ if width > max_size or height > max_size:
 st.subheader("Click on the Image to Detect a Color")
 
 # Create a drawable canvas to display the image and capture clicks
+# We pass the image as a background to the canvas
 canvas_result = st_canvas(
     fill_color="rgba(255, 255, 255, 0.3)",  # Fixed fill color with some opacity
     stroke_width=0,
     stroke_color="#000000",
-    background_image=bg_image,
+    background_image=bg_image, # Pass the PIL image directly
     update_streamlit=True,
     height=bg_image.height,
     width=bg_image.width,
