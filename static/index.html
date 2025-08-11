@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Color Detector</title>
+    <title>Color Palette Pro - Interactive Color Detector</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-color: #1a1a2e;
-            --primary-color: #16213e;
-            --secondary-color: #0f3460;
-            --accent-color: #e94560;
-            --font-color: #e0e0e0;
-            --card-bg: #1e1e3f;
+            --bg-color: #0d1117;
+            --primary-color: #161b22;
+            --secondary-color: #21262d;
+            --accent-color: #58a6ff;
+            --font-color: #c9d1d9;
+            --border-color: #30363d;
         }
 
         body {
@@ -31,128 +31,174 @@
 
         .container {
             background: var(--primary-color);
-            padding: 2.5rem;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            max-width: 900px;
+            padding: 2rem;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+            max-width: 1000px;
             width: 100%;
-            text-align: center;
         }
 
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
         header h1 {
             color: white;
             font-weight: 600;
-            margin-bottom: 0.5rem;
+            margin: 0;
         }
-
         header p {
-            color: var(--font-color);
-            margin-bottom: 2rem;
-            opacity: 0.8;
+            margin-top: 0.5rem;
+            opacity: 0.7;
         }
 
         .main-content {
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: 1fr;
             gap: 2rem;
         }
-
-        @media (min-width: 768px) {
+        @media (min-width: 800px) {
             .main-content {
-                flex-direction: row;
+                grid-template-columns: 2fr 1fr;
             }
         }
 
         .canvas-container {
-            flex: 2;
-            background: var(--card-bg);
-            border-radius: 10px;
+            background: var(--bg-color);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
             padding: 1rem;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 300px;
+            min-height: 400px;
+            position: relative;
         }
 
         canvas {
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: crosshair;
             max-width: 100%;
             height: auto;
+            display: none; /* Hidden by default */
         }
         
         .upload-area {
-            border: 2px dashed var(--secondary-color);
-            border-radius: 10px;
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
             padding: 2rem;
             width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
             transition: background-color 0.3s, border-color 0.3s;
         }
-
         .upload-area.dragover {
             border-color: var(--accent-color);
             background-color: var(--secondary-color);
         }
-
-        #imageLoader {
-            display: none;
+        .upload-area p {
+            margin: 0.5rem 0 1rem 0;
+            font-size: 0.9rem;
+            opacity: 0.6;
         }
+
+        #imageLoader { display: none; }
 
         .upload-label {
             cursor: pointer;
             background-color: var(--accent-color);
-            color: white;
-            padding: 12px 24px;
-            border-radius: 8px;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 6px;
             font-weight: 500;
-            transition: background-color 0.3s;
+            transition: transform 0.2s;
         }
-
-        .upload-label:hover {
-            background-color: #ff637f;
-        }
+        .upload-label:hover { transform: scale(1.05); }
 
         .results-container {
-            flex: 1;
+            background: var(--bg-color);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
 
         #results-card {
-            display: none;
+            display: none; /* Hidden by default */
             flex-direction: column;
             align-items: center;
             gap: 1.5rem;
-            padding: 1.5rem;
-            border-radius: 10px;
-            background-color: var(--card-bg);
-            transition: opacity 0.5s;
+            width: 100%;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+        #results-card.visible {
+            display: flex;
+            opacity: 1;
         }
 
         #color-box {
-            width: 100px;
-            height: 100px;
+            width: 120px;
+            height: 120px;
             border-radius: 50%;
             border: 4px solid white;
-            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            transition: background-color 0.3s;
         }
 
         #color-details p {
             margin: 0.5rem 0;
-            font-size: 1.1rem;
+            font-size: 1rem;
+            font-weight: 500;
         }
         #color-details strong {
             color: white;
-            opacity: 0.9;
+            opacity: 0.8;
+            font-weight: 400;
+            margin-right: 0.5rem;
         }
 
+        .loader-container {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(13, 17, 23, 0.7);
+            display: none; /* Hidden by default */
+            justify-content: center;
+            align-items: center;
+            border-radius: 8px;
+        }
         .loader {
-            border: 5px solid var(--secondary-color);
+            border: 5px solid var(--border-color);
             border-radius: 50%;
             border-top: 5px solid var(--accent-color);
-            width: 40px;
-            height: 40px;
+            width: 50px;
+            height: 50px;
             animation: spin 1.5s linear infinite;
+        }
+        
+        #error-message {
+            color: #ff7b72;
+            background-color: rgba(248, 81, 73, 0.1);
+            border: 1px solid rgba(248, 81, 73, 0.2);
+            padding: 1rem;
+            border-radius: 6px;
             display: none;
-            margin: 20px auto;
+            margin-top: 1rem;
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 2rem;
+            font-size: 0.9rem;
+            opacity: 0.5;
         }
 
         @keyframes spin {
@@ -165,21 +211,25 @@
 
     <div class="container">
         <header>
-            <h1>🎨 Color Palette Pro</h1>
+            <h1>Color Palette Pro</h1>
             <p>Instantly identify any color from your images with a single click.</p>
         </header>
 
         <div class="main-content">
             <div class="canvas-container">
                 <div id="upload-area" class="upload-area">
-                    <label for="imageLoader" class="upload-label">Choose or Drop Image</label>
-                    <p style="margin-top: 1rem; opacity: 0.7;">Drag and drop an image file here</p>
-                    <input type="file" id="imageLoader" accept="image/png, image/jpeg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-cloud-arrow-up-fill" viewBox="0 0 16 16" style="color: var(--accent-color); opacity: 0.7;">
+                        <path d="M8 2a5.53 5.53 0 0 0-3.594 1.342c-.766.66-1.321 1.52-1.464 2.383C1.266 6.095 0 7.555 0 9.318 0 11.366 1.708 13 3.781 13h8.906C14.502 13 16 11.57 16 9.773c0-1.636-1.242-2.969-2.834-3.194C12.923 3.999 10.69 2 8 2zm2.354 5.146a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708l2-2a.5.5 0 0 1 .708 0l2 2z"/>
+                    </svg>
+                    <p>Drag & Drop Image Here</p>
+                    <label for="imageLoader" class="upload-label">Or Select File</label>
+                    <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/webp">
                 </div>
-                <canvas id="imageCanvas" style="display:none;"></canvas>
+                <canvas id="imageCanvas"></canvas>
+                <div id="loader-container" class="loader-container"><div class="loader"></div></div>
             </div>
+            
             <div class="results-container">
-                <div id="loader" class="loader"></div>
                 <div id="results-card">
                     <div id="color-box"></div>
                     <div id="color-details">
@@ -188,112 +238,142 @@
                         <p><strong>RGB:</strong> <span id="rgbValue">N/A</span></p>
                     </div>
                 </div>
+                <div id="error-message"></div>
             </div>
         </div>
     </div>
+    
+    <footer>
+        <p>&copy; 2025 Color Palette Pro. Designed for clarity and function.</p>
+    </footer>
 
     <script>
-        const imageLoader = document.getElementById('imageLoader');
-        const uploadArea = document.getElementById('upload-area');
-        const canvas = document.getElementById('imageCanvas');
-        const ctx = canvas.getContext('2d');
-        const loader = document.getElementById('loader');
-        const resultsCard = document.getElementById('results-card');
-        const colorBox = document.getElementById('color-box');
-        const colorNameSpan = document.getElementById('colorName');
-        const hexCodeSpan = document.getElementById('hexCode');
-        const rgbValueSpan = document.getElementById('rgbValue');
+        // Encapsulate logic in an object to avoid global variables
+        const colorApp = {
+            imageLoader: document.getElementById('imageLoader'),
+            uploadArea: document.getElementById('upload-area'),
+            canvas: document.getElementById('imageCanvas'),
+            ctx: document.getElementById('imageCanvas').getContext('2d'),
+            loaderContainer: document.getElementById('loader-container'),
+            resultsCard: document.getElementById('results-card'),
+            colorBox: document.getElementById('color-box'),
+            colorNameSpan: document.getElementById('colorName'),
+            hexCodeSpan: document.getElementById('hexCode'),
+            rgbValueSpan: document.getElementById('rgbValue'),
+            errorMessage: document.getElementById('error-message'),
+            currentImageFile: null,
 
-        let currentImageFile = null;
+            init() {
+                this.imageLoader.addEventListener('change', (e) => this.handleFiles(e.target.files));
+                this.setupDragAndDrop();
+                this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
+            },
 
-        function handleFiles(files) {
-            const file = files[0];
-            if (file && file.type.startsWith('image/')) {
-                currentImageFile = file;
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    const img = new Image();
-                    img.onload = () => {
-                        const maxWidth = 500;
-                        let scale = 1;
-                        if (img.width > maxWidth) {
-                            scale = maxWidth / img.width;
-                        }
-                        canvas.width = img.width * scale;
-                        canvas.height = img.height * scale;
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        
-                        uploadArea.style.display = 'none';
-                        canvas.style.display = 'block';
-                    }
-                    img.src = event.target.result;
-                }
-                reader.readAsDataURL(file);
-                resultsCard.style.display = 'none';
-            }
-        }
+            setupDragAndDrop() {
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                    this.uploadArea.addEventListener(eventName, this.preventDefaults, false);
+                });
+                ['dragenter', 'dragover'].forEach(eventName => {
+                    this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.add('dragover'), false);
+                });
+                ['dragleave', 'drop'].forEach(eventName => {
+                    this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.remove('dragover'), false);
+                });
+                this.uploadArea.addEventListener('drop', (e) => this.handleFiles(e.dataTransfer.files), false);
+            },
 
-        imageLoader.addEventListener('change', (e) => handleFiles(e.target.files));
-
-        // Drag and Drop Listeners
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, (e) => {
+            preventDefaults(e) {
                 e.preventDefault();
                 e.stopPropagation();
-            }, false);
-        });
+            },
 
-        ['dragenter', 'dragover'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, () => uploadArea.classList.add('dragover'), false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, () => uploadArea.classList.remove('dragover'), false);
-        });
-
-        uploadArea.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files), false);
-
-        canvas.addEventListener('click', (e) => {
-            if (!currentImageFile) {
-                alert('Please upload an image first.');
-                return;
-            }
-
-            const rect = canvas.getBoundingClientRect();
-            const originalX = Math.round((e.clientX - rect.left) * (canvas.width / rect.width));
-            const originalY = Math.round((e.clientY - rect.top) * (canvas.height / rect.height));
-
-            loader.style.display = 'block';
-            resultsCard.style.display = 'none';
-
-            const formData = new FormData();
-            formData.append('image', currentImageFile);
-            formData.append('x', originalX);
-            formData.append('y', originalY);
-
-            fetch('/api/detect', {
-                method: 'POST',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                loader.style.display = 'none';
-                if (data.error) {
-                    alert('Error: ' + data.error);
+            handleFiles(files) {
+                const file = files[0];
+                if (file && file.type.startsWith('image/')) {
+                    this.currentImageFile = file;
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            const maxWidth = 600;
+                            const scale = (img.width > maxWidth) ? maxWidth / img.width : 1;
+                            this.canvas.width = img.width * scale;
+                            this.canvas.height = img.height * scale;
+                            this.ctx.drawImage(img, 0, 0, this.canvas.width, this.canvas.height);
+                            
+                            this.uploadArea.style.display = 'none';
+                            this.canvas.style.display = 'block';
+                        }
+                        img.src = event.target.result;
+                    }
+                    reader.readAsDataURL(file);
+                    this.hideResults();
                 } else {
-                    colorNameSpan.textContent = data.color_name;
-                    hexCodeSpan.textContent = data.hex_code;
-                    rgbValueSpan.textContent = data.rgb;
-                    colorBox.style.backgroundColor = data.detected_rgb;
-                    resultsCard.style.display = 'flex';
+                    this.showError('Please upload a valid image file (PNG, JPG, etc.).');
                 }
-            })
-            .catch(error => {
-                loader.style.display = 'none';
-                console.error('Error:', error);
-                alert('An error occurred while detecting the color.');
-            });
-        });
+            },
+
+            handleCanvasClick(e) {
+                if (!this.currentImageFile) {
+                    this.showError('Please upload an image first.');
+                    return;
+                }
+
+                const rect = this.canvas.getBoundingClientRect();
+                const originalX = Math.round((e.clientX - rect.left) * (this.canvas.width / rect.width));
+                const originalY = Math.round((e.clientY - rect.top) * (this.canvas.height / rect.height));
+
+                this.setLoading(true);
+                this.hideResults();
+
+                const formData = new FormData();
+                formData.append('image', this.currentImageFile);
+                formData.append('x', originalX);
+                formData.append('y', originalY);
+
+                fetch('/api/detect', { method: 'POST', body: formData })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(err => { throw new Error(err.detail || 'Server error'); });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        this.setLoading(false);
+                        this.displayResults(data);
+                    })
+                    .catch(error => {
+                        this.setLoading(false);
+                        this.showError(error.message);
+                    });
+            },
+
+            setLoading(isLoading) {
+                this.loaderContainer.style.display = isLoading ? 'flex' : 'none';
+                this.canvas.style.cursor = isLoading ? 'wait' : 'crosshair';
+            },
+
+            displayResults(data) {
+                this.colorNameSpan.textContent = data.color_name;
+                this.hexCodeSpan.textContent = data.hex_code;
+                this.rgbValueSpan.textContent = data.rgb;
+                this.colorBox.style.backgroundColor = data.detected_rgb;
+                this.resultsCard.classList.add('visible');
+            },
+
+            hideResults() {
+                this.resultsCard.classList.remove('visible');
+                this.errorMessage.style.display = 'none';
+            },
+
+            showError(message) {
+                this.errorMessage.textContent = `⚠️ ${message}`;
+                this.errorMessage.style.display = 'block';
+            }
+        };
+
+        // Initialize the application
+        colorApp.init();
     </script>
 </body>
 </html>
