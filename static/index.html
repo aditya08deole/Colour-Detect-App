@@ -70,7 +70,8 @@
                         <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/webp">
                     </div>
                     <canvas id="imageCanvas"></canvas>
-                    <canvas id="pixelGridCanvas"></canvas> <div id="loupe" style="display: none;"></div>
+                    <canvas id="pixelGridCanvas"></canvas>
+                    <div id="loupe" style="display: none;"></div>
                     <div id="navigator"><div id="navigator-view"></div></div>
                     <div id="loader-container" class="loader-container" style="display:none;"><div class="loader" style="width:50px; height:50px;"></div></div>
                 </div>
@@ -86,13 +87,40 @@
     <script>
         const colorApp = {
             // DOM Elements
-            // ... (all previous DOM element properties are the same)
+            imageLoader: document.getElementById('imageLoader'),
+            uploadArea: document.getElementById('upload-area'),
+            uploadLabel: document.getElementById('upload-label'),
+            uploadText: document.getElementById('upload-text'),
+            uploadLoader: document.getElementById('upload-loader'),
+            canvas: document.getElementById('imageCanvas'),
+            canvasContainer: document.getElementById('canvas-container'),
+            ctx: document.getElementById('imageCanvas').getContext('2d'),
             pixelGridCanvas: document.getElementById('pixelGridCanvas'),
             pixelGridCtx: document.getElementById('pixelGridCanvas').getContext('2d'),
+            loaderContainer: document.getElementById('loader-container'),
+            resultsCard: document.getElementById('results-card'),
+            colorBox: document.getElementById('color-box'),
+            colorNameSpan: document.getElementById('colorName'),
+            hexCodeSpan: document.getElementById('hexCode'),
+            rgbValueSpan: document.getElementById('rgbValue'),
+            historyList: document.getElementById('history-list'),
+            historyEmptyState: document.getElementById('history-empty-state'),
+            clearHistoryBtn: document.getElementById('clear-history'),
+            loupe: document.getElementById('loupe'),
+            navigator: document.getElementById('navigator'),
+            navigatorView: document.getElementById('navigator-view'),
+            toastContainer: document.getElementById('toast-container'),
+            themeToggle: document.getElementById('theme-toggle'),
+            paletteContainer: document.getElementById('palette-container'),
             
             // State
-            // ... (all previous state properties are the same)
-            lastMouseEvent: null, // NEW: To store the last mouse event
+            currentImageFile: null,
+            panzoomInstance: null,
+            originalImage: null,
+            colorHistory: [],
+            isPanning: false,
+            lastMouseEvent: null,
+            MAX_IMAGE_DIMENSION: 1920,
 
             init() {
                 this.imageLoader.addEventListener('change', (e) => this.handleFiles(e.target.files));
@@ -100,7 +128,6 @@
                 this.setupZoomControls();
                 this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
                 
-                // UPDATED: Mouse move listener now stores the last event
                 this.canvas.addEventListener('mousemove', this.debounce((e) => {
                     this.lastMouseEvent = e;
                     this.updateLoupe(e);
@@ -119,76 +146,190 @@
                 window.addEventListener('keyup', (e) => this.handleKeyUp(e));
                 this.clearHistoryBtn.addEventListener('click', () => this.clearHistory());
             },
-            
-            // ... (debounce, handleKeyDown, handleKeyUp, setupDragAndDrop, setupZoomControls remain the same)
 
-            handleFiles(files) {
-                const file = files[0];
-                if (file && file.type.startsWith('image/')) {
-                    this.uploadLabel.setAttribute('disabled', true);
-                    this.uploadText.textContent = 'Processing...';
-                    this.uploadLoader.style.display = 'block';
+            debounce(func, delay) {
+                let timeout;
+                return function(...args) {
+                    const context = this;
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(context, args), delay);
+                };
+            },
 
-                    this.resizeImage(file, (resizedFile) => {
-                        this.currentImageFile = resizedFile;
-                        const reader = new FileReader();
-                        reader.onload = (event) => {
-                            this.originalImage = new Image();
-                            this.originalImage.onerror = () => {
-                                this.showToast('Error: Could not load image file.', true);
-                                this.resetUI();
-                            };
-                            this.originalImage.onload = () => {
-                                // Sync canvas sizes
-                                this.canvas.width = this.originalImage.width;
-                                this.canvas.height = this.originalImage.height;
-                                this.pixelGridCanvas.width = this.originalImage.width;
-                                this.pixelGridCanvas.height = this.originalImage.height;
-                                
-                                this.ctx.drawImage(this.originalImage, 0, 0);
-                                
-                                this.uploadArea.style.display = 'none';
-                                this.canvas.style.display = 'block';
-                                
-                                if (this.panzoomInstance) this.panzoomInstance.destroy();
-                                this.panzoomInstance = Panzoom(this.canvas, {
-                                    maxScale: 30, // Increased max zoom
-                                    canvas: true,
-                                    disablePan: true 
-                                });
-                                
-                                this.canvasContainer.addEventListener('wheel', (e) => {
-                                    e.preventDefault();
-                                    this.panzoomInstance.zoomWithWheel(e, { 
-                                        animate: true,
-                                        focal: { x: e.clientX, y: e.clientY }
-                                    });
-                                });
-
-                                // UPDATED: Pan/Zoom listeners now also handle loupe and grid updates
-                                this.canvas.addEventListener('panzoomzoom', (e) => {
-                                    this.updateNavigator();
-                                    this.drawPixelGrid();
-                                    if (this.lastMouseEvent) {
-                                        this.updateLoupe(this.lastMouseEvent);
-                                    }
-                                });
-                                this.canvas.addEventListener('panzoompan', (e) => {
-                                    this.updateNavigator();
-                                    this.drawPixelGrid();
-                                });
-                                
-                                this.setupNavigator();
-                                this.resetUploadButton();
-                            }
-                            this.originalImage.src = event.target.result;
-                        }
-                        reader.readAsDataURL(resizedFile);
-                    });
+            handleKeyDown(e) {
+                if (e.code === 'Space' && this.originalImage) {
+                    e.preventDefault();
+                    if (this.isPanning) return;
+                    this.isPanning = true;
+                    this.canvas.style.cursor = 'grab';
+                    this.panzoomInstance.setOptions({ disablePan: false });
                 }
             },
             
-            // ... (resetUI, resetUploadButton, resizeImage, handleCanvasClick remain the same)
+            handleKeyUp(e) {
+                if (e.code === 'Space' && this.originalImage) {
+                    this.isPanning = false;
+                    this.canvas.style.cursor = 'crosshair';
+                    this.panzoomInstance.setOptions({ disablePan: true });
+                }
+            },
+
+            setupDragAndDrop() {
+                const preventDefaults = e => { e.preventDefault(); e.stopPropagation(); };
+                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => this.uploadArea.addEventListener(eventName, preventDefaults, false));
+                ['dragenter', 'dragover'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.add('dragover'), false));
+                ['dragleave', 'drop'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.remove('dragover'), false));
+                this.uploadArea.addEventListener('drop', (e) => this.handleFiles(e.dataTransfer.files), false);
+            },
+
+            setupZoomControls() {
+                const zoomOptions = { animate: true };
+                document.getElementById('zoom-in').addEventListener('click', () => this.panzoomInstance?.zoomIn(zoomOptions));
+                document.getElementById('zoom-out').addEventListener('click', () => this.panzoomInstance?.zoomOut(zoomOptions));
+                document.getElementById('reset-zoom').addEventListener('click', () => this.panzoomInstance?.reset(zoomOptions));
+            },
+
+            handleFiles(files) {
+                const file = files[0];
+                if (!file || !file.type.startsWith('image/')) return;
+
+                this.uploadLabel.setAttribute('disabled', true);
+                this.uploadText.textContent = 'Processing...';
+                this.uploadLoader.style.display = 'block';
+
+                this.resizeImage(file, (resizedBlob, resizedDataUrl) => {
+                    if (!resizedBlob || !resizedDataUrl) {
+                        this.showToast('Error: Could not process image.', true);
+                        this.resetUI();
+                        return;
+                    }
+                    
+                    this.currentImageFile = resizedBlob;
+                    
+                    this.originalImage = new Image();
+                    this.originalImage.onerror = () => {
+                        this.showToast('Error: Could not load image file.', true);
+                        this.resetUI();
+                    };
+                    this.originalImage.onload = () => {
+                        this.canvas.width = this.originalImage.width;
+                        this.canvas.height = this.originalImage.height;
+                        this.pixelGridCanvas.width = this.originalImage.width;
+                        this.pixelGridCanvas.height = this.originalImage.height;
+                        
+                        this.ctx.drawImage(this.originalImage, 0, 0);
+                        
+                        this.uploadArea.style.display = 'none';
+                        this.canvas.style.display = 'block';
+                        
+                        if (this.panzoomInstance) this.panzoomInstance.destroy();
+                        this.panzoomInstance = Panzoom(this.canvas, {
+                            maxScale: 30,
+                            canvas: true,
+                            disablePan: true 
+                        });
+                        
+                        this.canvasContainer.addEventListener('wheel', (e) => {
+                            e.preventDefault();
+                            this.panzoomInstance.zoomWithWheel(e, { 
+                                animate: true,
+                                focal: { x: e.clientX, y: e.clientY }
+                            });
+                        });
+
+                        this.canvas.addEventListener('panzoomzoom', (e) => {
+                            this.updateNavigator();
+                            this.drawPixelGrid();
+                            if (this.lastMouseEvent) this.updateLoupe(this.lastMouseEvent);
+                        });
+                        this.canvas.addEventListener('panzoompan', (e) => {
+                            this.updateNavigator();
+                            this.drawPixelGrid();
+                        });
+                        
+                        this.setupNavigator();
+                        this.resetUploadButton();
+                    };
+                    this.originalImage.src = resizedDataUrl;
+                });
+            },
+
+            resizeImage(file, callback) {
+                const reader = new FileReader();
+                reader.onerror = () => {
+                    callback(null, null);
+                };
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onerror = () => {
+                        callback(null, null);
+                    };
+                    img.onload = () => {
+                        let { width, height } = img;
+                        if (width > height) {
+                            if (width > this.MAX_IMAGE_DIMENSION) {
+                                height *= this.MAX_IMAGE_DIMENSION / width;
+                                width = this.MAX_IMAGE_DIMENSION;
+                            }
+                        } else {
+                            if (height > this.MAX_IMAGE_DIMENSION) {
+                                width *= this.MAX_IMAGE_DIMENSION / height;
+                                height = this.MAX_IMAGE_DIMENSION;
+                            }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        const dataUrl = canvas.toDataURL(file.type);
+                        canvas.toBlob(blob => {
+                            callback(blob, dataUrl);
+                        }, file.type, 0.9);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            },
+            
+            resetUI() {
+                this.uploadArea.style.display = 'flex';
+                this.canvas.style.display = 'none';
+                this.navigator.style.display = 'none';
+                this.resetUploadButton();
+            },
+            
+            resetUploadButton() {
+                this.uploadLabel.removeAttribute('disabled');
+                this.uploadText.textContent = 'Upload New Image';
+                this.uploadLoader.style.display = 'none';
+            },
+
+            handleCanvasClick(e) {
+                if (!this.currentImageFile || !this.panzoomInstance || this.isPanning) return;
+                const rect = this.canvas.getBoundingClientRect();
+                const pan = this.panzoomInstance.getPan();
+                const scale = this.panzoomInstance.getScale();
+                const x = (e.clientX - rect.left - pan.x) / scale;
+                const y = (e.clientY - rect.top - pan.y) / scale;
+                this.loaderContainer.style.display = 'flex';
+                const formData = new FormData();
+                formData.append('image', this.currentImageFile);
+                formData.append('x', Math.round(x));
+                formData.append('y', Math.round(y));
+                fetch('/api/detect', { method: 'POST', body: formData })
+                    .then(response => response.ok ? response.json() : response.json().then(err => Promise.reject(err)))
+                    .then(data => {
+                        this.loaderContainer.style.display = 'none';
+                        this.displayResults(data);
+                        this.addToHistory(data);
+                    })
+                    .catch(error => {
+                        this.loaderContainer.style.display = 'none';
+                        this.showToast(error.detail || 'Could not detect color.', true);
+                    });
+            },
 
             updateLoupe(e) {
                 if (!this.originalImage || !this.panzoomInstance) return;
@@ -201,9 +342,8 @@
                 this.loupe.style.left = `${e.clientX - 75}px`;
                 this.loupe.style.top = `${e.clientY - 75}px`;
                 
-                const zoomFactor = 4; // Loupe's fixed magnification
+                const zoomFactor = 4;
                 
-                // UPDATED: Loupe is now independent of the main canvas zoom scale
                 this.loupe.style.backgroundSize = `${this.originalImage.width * zoomFactor}px ${this.originalImage.height * zoomFactor}px`;
                 this.loupe.style.backgroundPosition = `-${imgX * zoomFactor - 75}px -${imgY * zoomFactor - 75}px`;
                 this.loupe.style.backgroundImage = `url(${this.originalImage.src})`;
@@ -217,41 +357,148 @@
                 
                 ctx.clearRect(0, 0, this.pixelGridCanvas.width, this.pixelGridCanvas.height);
                 
-                if (scale < 8) return; // Only show grid when highly zoomed
+                if (scale < 8) return;
 
                 ctx.save();
-                ctx.lineWidth = 1 / scale; // Keep grid lines thin
-                ctx.strokeStyle = 'rgba(128, 128, 128, 0.5)';
+                ctx.lineWidth = 1; // Grid lines will be scaled down
+                ctx.strokeStyle = document.body.classList.contains('dark-mode') ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.2)';
 
-                // Apply pan and scale to the grid canvas
-                ctx.setTransform(scale, 0, 0, scale, pan.x, pan.y);
+                // We don't need to transform the grid canvas, just draw on it in the correct place
+                const left = pan.x % scale;
+                const top = pan.y % scale;
 
-                const startX = Math.floor(-pan.x / scale);
-                const startY = Math.floor(-pan.y / scale);
-                const endX = startX + this.canvasContainer.offsetWidth / scale + 1;
-                const endY = startY + this.canvasContainer.offsetHeight / scale + 1;
-
-                for (let x = startX; x < endX; x++) {
+                for (let x = left; x < this.pixelGridCanvas.width; x += scale) {
                     ctx.beginPath();
-                    ctx.moveTo(x + 0.5, startY);
-                    ctx.lineTo(x + 0.5, endY);
+                    ctx.moveTo(x + 0.5, 0);
+                    ctx.lineTo(x + 0.5, this.pixelGridCanvas.height);
                     ctx.stroke();
                 }
-                for (let y = startY; y < endY; y++) {
+                for (let y = top; y < this.pixelGridCanvas.height; y += scale) {
                     ctx.beginPath();
-                    ctx.moveTo(startX, y + 0.5);
-                    ctx.lineTo(endX, y + 0.5);
+                    ctx.moveTo(0, y + 0.5);
+                    ctx.lineTo(this.pixelGridCanvas.width, y + 0.5);
                     ctx.stroke();
                 }
                 ctx.restore();
             },
 
-            // ... (setupNavigator, updateNavigator, displayResults, addToHistory, renderHistory, clearHistory, showToast, copyToClipboard, toggleTheme remain the same)
-        };
+            setupNavigator() {
+                this.navigator.style.display = 'block';
+                this.navigator.style.backgroundImage = `url(${this.originalImage.src})`;
+                this.updateNavigator();
+            },
 
-        // This is a condensed representation. In the actual file, all JS functions would be present.
-        // For brevity, only the new/changed functions are shown in full detail.
-        // Assume all other functions from the previous response are included here.
+            updateNavigator() {
+                if (!this.originalImage || !this.panzoomInstance) return;
+                const pan = this.panzoomInstance.getPan();
+                const scale = this.panzoomInstance.getScale();
+                const containerRect = this.canvasContainer.getBoundingClientRect();
+                const navRect = this.navigator.getBoundingClientRect();
+                
+                if (navRect.width === 0) return; // Don't calculate if navigator is hidden
+                
+                const viewWidth = containerRect.width / scale;
+                const viewHeight = containerRect.height / scale;
+                const navScale = navRect.width / this.originalImage.width;
+                
+                this.navigatorView.style.width = `${viewWidth * navScale}px`;
+                this.navigatorView.style.height = `${viewHeight * navScale}px`;
+                this.navigatorView.style.left = `${-pan.x * navScale}px`;
+                this.navigatorView.style.top = `${-pan.y * navScale}px`;
+            },
+            
+            displayResults(data) {
+                this.colorNameSpan.textContent = data.color_name;
+                this.hexCodeSpan.textContent = data.hex_code;
+                this.rgbValueSpan.textContent = data.rgb;
+                this.colorBox.style.backgroundColor = data.detected_rgb;
+                this.resultsCard.classList.add('visible');
+                const [r, g, b] = data.rgb.split(',').map(Number);
+                fetch(`/api/palette?r=${r}&g=${g}&b=${b}`)
+                    .then(res => res.json())
+                    .then(paletteData => {
+                        this.paletteContainer.innerHTML = '<strong>Shades & Tints:</strong>';
+                        const paletteDiv = document.createElement('div');
+                        paletteDiv.className = 'palette';
+                        const fullPalette = [...paletteData.tints.slice(0, 4), data.detected_rgb, ...paletteData.shades.slice(1)];
+                        fullPalette.forEach(color => {
+                            const swatch = document.createElement('div');
+                            swatch.className = 'palette-swatch';
+                            swatch.style.backgroundColor = color;
+                            paletteDiv.appendChild(swatch);
+                        });
+                        this.paletteContainer.appendChild(paletteDiv);
+                    });
+            },
+
+            addToHistory(data) {
+                const isDuplicate = this.colorHistory.some(c => c.hex_code === data.hex_code);
+                if (!isDuplicate) {
+                    this.colorHistory.unshift(data);
+                    if (this.colorHistory.length > 20) this.colorHistory.pop();
+                    this.renderHistory();
+                }
+            },
+
+            renderHistory() {
+                if (this.colorHistory.length === 0) {
+                    this.historyEmptyState.style.display = 'flex';
+                    this.historyList.innerHTML = '';
+                } else {
+                    this.historyEmptyState.style.display = 'none';
+                    this.historyList.innerHTML = '';
+                    this.colorHistory.forEach(color => {
+                        const li = document.createElement('li');
+                        li.innerHTML = `<div class="history-swatch" style="background-color: ${color.detected_rgb};"></div><div class="history-info"><strong>${color.color_name}</strong><br><span>${color.hex_code}</span></div>`;
+                        li.onclick = () => this.displayResults(color);
+                        this.historyList.appendChild(li);
+                    });
+                }
+            },
+            
+            clearHistory() {
+                this.colorHistory = [];
+                this.renderHistory();
+                this.showToast('History cleared.');
+            },
+
+            showToast(message, isError = false) {
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                if (isError) toast.classList.add('error');
+                toast.textContent = message;
+                this.toastContainer.appendChild(toast);
+                setTimeout(() => toast.classList.add('show'), 10);
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    toast.addEventListener('transitionend', () => toast.remove());
+                }, 3000);
+            },
+
+            copyToClipboard(elementSelector, button) {
+                const text = document.querySelector(elementSelector).textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    const originalText = button.innerHTML;
+                    button.disabled = true;
+                    button.innerHTML = 'Copied!';
+                    setTimeout(() => {
+                        button.innerHTML = originalText;
+                        button.disabled = false;
+                    }, 2000);
+                }, () => this.showToast('Failed to copy text.', true));
+            },
+
+            toggleTheme() {
+                if (this.themeToggle.checked) {
+                    document.body.classList.add('dark-mode');
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                    localStorage.setItem('theme', 'light');
+                }
+            }
+        };
+        
         colorApp.init();
     </script>
 </body>
