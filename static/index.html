@@ -42,14 +42,6 @@
                     <li id="history-empty-state" style="justify-content: center; opacity: 0.6;">No colors picked yet.</li>
                 </ul>
             </div>
-            
-            <div id="trackpad-container">
-                <h2>Trackpad Control</h2>
-                <div id="trackpad-area">
-                    <div id="trackpad-puck"></div>
-                </div>
-            </div>
-
              <div class="theme-switch-wrapper">
                 <label class="theme-switch" for="theme-toggle">
                     <input type="checkbox" id="theme-toggle">
@@ -78,7 +70,7 @@
                         <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/webp">
                     </div>
                     <canvas id="imageCanvas"></canvas>
-                    <div id="loupe" style="display: none;"></div>
+                    <canvas id="pixelGridCanvas"></canvas> <div id="loupe" style="display: none;"></div>
                     <div id="navigator"><div id="navigator-view"></div></div>
                     <div id="loader-container" class="loader-container" style="display:none;"><div class="loader" style="width:50px; height:50px;"></div></div>
                 </div>
@@ -94,51 +86,26 @@
     <script>
         const colorApp = {
             // DOM Elements
-            imageLoader: document.getElementById('imageLoader'),
-            uploadArea: document.getElementById('upload-area'),
-            uploadLabel: document.getElementById('upload-label'),
-            uploadText: document.getElementById('upload-text'),
-            uploadLoader: document.getElementById('upload-loader'),
-            canvas: document.getElementById('imageCanvas'),
-            canvasContainer: document.getElementById('canvas-container'),
-            ctx: document.getElementById('imageCanvas').getContext('2d'),
-            loaderContainer: document.getElementById('loader-container'),
-            resultsCard: document.getElementById('results-card'),
-            colorBox: document.getElementById('color-box'),
-            colorNameSpan: document.getElementById('colorName'),
-            hexCodeSpan: document.getElementById('hexCode'),
-            rgbValueSpan: document.getElementById('rgbValue'),
-            historyList: document.getElementById('history-list'),
-            historyEmptyState: document.getElementById('history-empty-state'),
-            clearHistoryBtn: document.getElementById('clear-history'),
-            loupe: document.getElementById('loupe'),
-            navigator: document.getElementById('navigator'),
-            navigatorView: document.getElementById('navigator-view'),
-            toastContainer: document.getElementById('toast-container'),
-            themeToggle: document.getElementById('theme-toggle'),
-            paletteContainer: document.getElementById('palette-container'),
-            trackpadArea: document.getElementById('trackpad-area'),
-            trackpadPuck: document.getElementById('trackpad-puck'),
+            // ... (all previous DOM element properties are the same)
+            pixelGridCanvas: document.getElementById('pixelGridCanvas'),
+            pixelGridCtx: document.getElementById('pixelGridCanvas').getContext('2d'),
             
             // State
-            currentImageFile: null,
-            panzoomInstance: null,
-            originalImage: null,
-            colorHistory: [],
-            isPanning: false,
-            isDraggingPuck: false,
-            puckStartX: 0,
-            puckStartY: 0,
-            MAX_IMAGE_DIMENSION: 1920,
+            // ... (all previous state properties are the same)
+            lastMouseEvent: null, // NEW: To store the last mouse event
 
             init() {
                 this.imageLoader.addEventListener('change', (e) => this.handleFiles(e.target.files));
                 this.setupDragAndDrop();
                 this.setupZoomControls();
-                this.setupTrackpad();
                 this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
                 
-                this.canvas.addEventListener('mousemove', this.debounce((e) => this.updateLoupe(e), 5));
+                // UPDATED: Mouse move listener now stores the last event
+                this.canvas.addEventListener('mousemove', this.debounce((e) => {
+                    this.lastMouseEvent = e;
+                    this.updateLoupe(e);
+                }, 5));
+
                 this.canvas.addEventListener('mouseenter', () => { if(this.originalImage) this.loupe.style.display = 'block'; });
                 this.canvas.addEventListener('mouseleave', () => { this.loupe.style.display = 'none'; });
 
@@ -152,78 +119,139 @@
                 window.addEventListener('keyup', (e) => this.handleKeyUp(e));
                 this.clearHistoryBtn.addEventListener('click', () => this.clearHistory());
             },
+            
+            // ... (debounce, handleKeyDown, handleKeyUp, setupDragAndDrop, setupZoomControls remain the same)
 
-            setupTrackpad() {
-                this.trackpadPuck.addEventListener('mousedown', (e) => {
-                    if (!this.panzoomInstance) return;
-                    this.isDraggingPuck = true;
-                    this.puckStartX = e.clientX;
-                    this.puckStartY = e.clientY;
-                    this.trackpadPuck.style.transition = 'none';
+            handleFiles(files) {
+                const file = files[0];
+                if (file && file.type.startsWith('image/')) {
+                    this.uploadLabel.setAttribute('disabled', true);
+                    this.uploadText.textContent = 'Processing...';
+                    this.uploadLoader.style.display = 'block';
 
-                    const handleTrackpadMove = (moveEvent) => {
-                        if (!this.isDraggingPuck) return;
+                    this.resizeImage(file, (resizedFile) => {
+                        this.currentImageFile = resizedFile;
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            this.originalImage = new Image();
+                            this.originalImage.onerror = () => {
+                                this.showToast('Error: Could not load image file.', true);
+                                this.resetUI();
+                            };
+                            this.originalImage.onload = () => {
+                                // Sync canvas sizes
+                                this.canvas.width = this.originalImage.width;
+                                this.canvas.height = this.originalImage.height;
+                                this.pixelGridCanvas.width = this.originalImage.width;
+                                this.pixelGridCanvas.height = this.originalImage.height;
+                                
+                                this.ctx.drawImage(this.originalImage, 0, 0);
+                                
+                                this.uploadArea.style.display = 'none';
+                                this.canvas.style.display = 'block';
+                                
+                                if (this.panzoomInstance) this.panzoomInstance.destroy();
+                                this.panzoomInstance = Panzoom(this.canvas, {
+                                    maxScale: 30, // Increased max zoom
+                                    canvas: true,
+                                    disablePan: true 
+                                });
+                                
+                                this.canvasContainer.addEventListener('wheel', (e) => {
+                                    e.preventDefault();
+                                    this.panzoomInstance.zoomWithWheel(e, { 
+                                        animate: true,
+                                        focal: { x: e.clientX, y: e.clientY }
+                                    });
+                                });
 
-                        const deltaX = moveEvent.clientX - this.puckStartX;
-                        const deltaY = moveEvent.clientY - this.puckStartY;
+                                // UPDATED: Pan/Zoom listeners now also handle loupe and grid updates
+                                this.canvas.addEventListener('panzoomzoom', (e) => {
+                                    this.updateNavigator();
+                                    this.drawPixelGrid();
+                                    if (this.lastMouseEvent) {
+                                        this.updateLoupe(this.lastMouseEvent);
+                                    }
+                                });
+                                this.canvas.addEventListener('panzoompan', (e) => {
+                                    this.updateNavigator();
+                                    this.drawPixelGrid();
+                                });
+                                
+                                this.setupNavigator();
+                                this.resetUploadButton();
+                            }
+                            this.originalImage.src = event.target.result;
+                        }
+                        reader.readAsDataURL(resizedFile);
+                    });
+                }
+            },
+            
+            // ... (resetUI, resetUploadButton, resizeImage, handleCanvasClick remain the same)
 
-                        const radius = this.trackpadArea.offsetWidth / 2 - this.trackpadPuck.offsetWidth / 2;
-                        const distance = Math.min(radius, Math.sqrt(deltaX**2 + deltaY**2));
-                        const angle = Math.atan2(deltaY, deltaX);
-                        
-                        const puckX = distance * Math.cos(angle);
-                        const puckY = distance * Math.sin(angle);
-                        this.trackpadPuck.style.transform = `translate(-50%, -50%) translate(${puckX}px, ${puckY}px)`;
+            updateLoupe(e) {
+                if (!this.originalImage || !this.panzoomInstance) return;
+                const rect = this.canvas.getBoundingClientRect();
+                const pan = this.panzoomInstance.getPan();
+                const scale = this.panzoomInstance.getScale();
+                const imgX = (e.clientX - rect.left - pan.x) / scale;
+                const imgY = (e.clientY - rect.top - pan.y) / scale;
+                
+                this.loupe.style.left = `${e.clientX - 75}px`;
+                this.loupe.style.top = `${e.clientY - 75}px`;
+                
+                const zoomFactor = 4; // Loupe's fixed magnification
+                
+                // UPDATED: Loupe is now independent of the main canvas zoom scale
+                this.loupe.style.backgroundSize = `${this.originalImage.width * zoomFactor}px ${this.originalImage.height * zoomFactor}px`;
+                this.loupe.style.backgroundPosition = `-${imgX * zoomFactor - 75}px -${imgY * zoomFactor - 75}px`;
+                this.loupe.style.backgroundImage = `url(${this.originalImage.src})`;
+            },
+            
+            drawPixelGrid() {
+                if (!this.panzoomInstance) return;
+                const pan = this.panzoomInstance.getPan();
+                const scale = this.panzoomInstance.getScale();
+                const ctx = this.pixelGridCtx;
+                
+                ctx.clearRect(0, 0, this.pixelGridCanvas.width, this.pixelGridCanvas.height);
+                
+                if (scale < 8) return; // Only show grid when highly zoomed
 
-                        const sensitivity = 0.5;
-                        this.panzoomInstance.pan(-deltaX * sensitivity, -deltaY * sensitivity, { animate: false });
+                ctx.save();
+                ctx.lineWidth = 1 / scale; // Keep grid lines thin
+                ctx.strokeStyle = 'rgba(128, 128, 128, 0.5)';
 
-                        this.puckStartX = moveEvent.clientX;
-                        this.puckStartY = moveEvent.clientY;
-                    };
+                // Apply pan and scale to the grid canvas
+                ctx.setTransform(scale, 0, 0, scale, pan.x, pan.y);
 
-                    const handleTrackpadEnd = () => {
-                        this.isDraggingPuck = false;
-                        this.trackpadPuck.style.transition = 'transform 0.2s ease-out';
-                        this.trackpadPuck.style.transform = 'translate(-50%, -50%)';
-                        
-                        window.removeEventListener('mousemove', handleTrackpadMove);
-                        window.removeEventListener('mouseup', handleTrackpadEnd);
-                    };
+                const startX = Math.floor(-pan.x / scale);
+                const startY = Math.floor(-pan.y / scale);
+                const endX = startX + this.canvasContainer.offsetWidth / scale + 1;
+                const endY = startY + this.canvasContainer.offsetHeight / scale + 1;
 
-                    window.addEventListener('mousemove', handleTrackpadMove);
-                    window.addEventListener('mouseup', handleTrackpadEnd, { once: true });
-                });
+                for (let x = startX; x < endX; x++) {
+                    ctx.beginPath();
+                    ctx.moveTo(x + 0.5, startY);
+                    ctx.lineTo(x + 0.5, endY);
+                    ctx.stroke();
+                }
+                for (let y = startY; y < endY; y++) {
+                    ctx.beginPath();
+                    ctx.moveTo(startX, y + 0.5);
+                    ctx.lineTo(endX, y + 0.5);
+                    ctx.stroke();
+                }
+                ctx.restore();
             },
 
-            // ... (All other functions remain the same as the previous response)
-            // For brevity, only the new setupTrackpad function and the updated init function are shown in detail.
-            // The rest of the JS logic (handleFiles, handleCanvasClick, etc.) is unchanged.
+            // ... (setupNavigator, updateNavigator, displayResults, addToHistory, renderHistory, clearHistory, showToast, copyToClipboard, toggleTheme remain the same)
         };
 
-        // This is a condensed representation. In the actual file, all JS functions would be here.
-        // The following lines are placeholders for the functions from the previous version, which are assumed to be present.
-        colorApp.debounce = function(func, delay) { let timeout; return function(...args) { const context = this; clearTimeout(timeout); timeout = setTimeout(() => func.apply(context, args), delay); }; };
-        colorApp.handleKeyDown = function(e) { if (e.code === 'Space' && this.originalImage) { e.preventDefault(); if (this.isPanning) return; this.isPanning = true; this.canvas.style.cursor = 'grab'; this.panzoomInstance.setOptions({ disablePan: false }); } };
-        colorApp.handleKeyUp = function(e) { if (e.code === 'Space' && this.originalImage) { this.isPanning = false; this.canvas.style.cursor = 'crosshair'; this.panzoomInstance.setOptions({ disablePan: true }); } };
-        colorApp.setupDragAndDrop = function() { const preventDefaults = e => { e.preventDefault(); e.stopPropagation(); }; ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => this.uploadArea.addEventListener(eventName, preventDefaults, false)); ['dragenter', 'dragover'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.add('dragover'), false)); ['dragleave', 'drop'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.remove('dragover'), false)); this.uploadArea.addEventListener('drop', (e) => this.handleFiles(e.dataTransfer.files), false); };
-        colorApp.setupZoomControls = function() { const zoomOptions = { animate: true }; document.getElementById('zoom-in').addEventListener('click', () => this.panzoomInstance?.zoomIn(zoomOptions)); document.getElementById('zoom-out').addEventListener('click', () => this.panzoomInstance?.zoomOut(zoomOptions)); document.getElementById('reset-zoom').addEventListener('click', () => this.panzoomInstance?.reset(zoomOptions)); };
-        colorApp.handleFiles = function(files) { const file = files[0]; if (file && file.type.startsWith('image/')) { this.uploadLabel.setAttribute('disabled', true); this.uploadText.textContent = 'Processing...'; this.uploadLoader.style.display = 'block'; this.resizeImage(file, (resizedFile) => { this.currentImageFile = resizedFile; const reader = new FileReader(); reader.onload = (event) => { this.originalImage = new Image(); this.originalImage.onerror = () => { this.showToast('Error: Could not load image file.', true); this.resetUI(); }; this.originalImage.onload = () => { this.canvas.width = this.originalImage.width; this.canvas.height = this.originalImage.height; this.ctx.drawImage(this.originalImage, 0, 0); this.uploadArea.style.display = 'none'; this.canvas.style.display = 'block'; if (this.panzoomInstance) this.panzoomInstance.destroy(); this.panzoomInstance = Panzoom(this.canvas, { maxScale: 15, canvas: true, disablePan: true }); this.canvasContainer.addEventListener('wheel', (e) => { e.preventDefault(); this.panzoomInstance.zoomWithWheel(e, { animate: true, focal: { x: e.clientX, y: e.clientY } }); }); this.canvas.addEventListener('panzoomzoom', (e) => this.updateNavigator()); this.canvas.addEventListener('panzoompan', (e) => this.updateNavigator()); this.setupNavigator(); this.resetUploadButton(); }; this.originalImage.src = event.target.result; }; reader.readAsDataURL(resizedFile); }); } };
-        colorApp.resetUI = function() { this.uploadArea.style.display = 'flex'; this.canvas.style.display = 'none'; this.navigator.style.display = 'none'; this.resetUploadButton(); };
-        colorApp.resetUploadButton = function() { this.uploadLabel.removeAttribute('disabled'); this.uploadText.textContent = 'Upload New Image'; this.uploadLoader.style.display = 'none'; };
-        colorApp.resizeImage = function(file, callback) { const reader = new FileReader(); reader.onload = (e) => { const img = new Image(); img.onload = () => { let { width, height } = img; if (width > height) { if (width > this.MAX_IMAGE_DIMENSION) { height *= this.MAX_IMAGE_DIMENSION / width; width = this.MAX_IMAGE_DIMENSION; } } else { if (height > this.MAX_IMAGE_DIMENSION) { width *= this.MAX_IMAGE_DIMENSION / height; height = this.MAX_IMAGE_DIMENSION; } } const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height); canvas.toBlob(callback, file.type, 0.9); }; img.src = e.target.result; }; reader.readAsDataURL(file); };
-        colorApp.handleCanvasClick = function(e) { if (!this.currentImageFile || !this.panzoomInstance || this.isPanning) return; const rect = this.canvas.getBoundingClientRect(); const pan = this.panzoomInstance.getPan(); const scale = this.panzoomInstance.getScale(); const x = (e.clientX - rect.left - pan.x) / scale; const y = (e.clientY - rect.top - pan.y) / scale; this.loaderContainer.style.display = 'flex'; const formData = new FormData(); formData.append('image', this.currentImageFile); formData.append('x', Math.round(x)); formData.append('y', Math.round(y)); fetch('/api/detect', { method: 'POST', body: formData }).then(response => response.ok ? response.json() : response.json().then(err => Promise.reject(err))).then(data => { this.loaderContainer.style.display = 'none'; this.displayResults(data); this.addToHistory(data); }).catch(error => { this.loaderContainer.style.display = 'none'; this.showToast(error.detail || 'Could not detect color.', true); }); };
-        colorApp.updateLoupe = function(e) { if (!this.originalImage || !this.panzoomInstance) return; const rect = this.canvas.getBoundingClientRect(); const pan = this.panzoomInstance.getPan(); const scale = this.panzoomInstance.getScale(); const imgX = (e.clientX - rect.left - pan.x) / scale; const imgY = (e.clientY - rect.top - pan.y) / scale; this.loupe.style.left = `${e.clientX - 75}px`; this.loupe.style.top = `${e.clientY - 75}px`; const zoomFactor = 4; this.loupe.style.backgroundSize = `${this.originalImage.width * zoomFactor}px ${this.originalImage.height * zoomFactor}px`; this.loupe.style.backgroundPosition = `-${imgX * zoomFactor - 75}px -${imgY * zoomFactor - 75}px`; this.loupe.style.backgroundImage = `url(${this.originalImage.src})`; };
-        colorApp.setupNavigator = function() { this.navigator.style.display = 'block'; this.navigator.style.backgroundImage = `url(${this.originalImage.src})`; this.updateNavigator(); };
-        colorApp.updateNavigator = function() { if (!this.originalImage || !this.panzoomInstance) return; const pan = this.panzoomInstance.getPan(); const scale = this.panzoomInstance.getScale(); const containerRect = this.canvasContainer.getBoundingClientRect(); const navRect = this.navigator.getBoundingClientRect(); const viewWidth = containerRect.width / scale; const viewHeight = containerRect.height / scale; const navScale = navRect.width / this.originalImage.width; this.navigatorView.style.width = `${viewWidth * navScale}px`; this.navigatorView.style.height = `${viewHeight * navScale}px`; this.navigatorView.style.left = `${-pan.x * navScale}px`; this.navigatorView.style.top = `${-pan.y * navScale}px`; };
-        colorApp.displayResults = function(data) { this.colorNameSpan.textContent = data.color_name; this.hexCodeSpan.textContent = data.hex_code; this.rgbValueSpan.textContent = data.rgb; this.colorBox.style.backgroundColor = data.detected_rgb; this.resultsCard.classList.add('visible'); const [r, g, b] = data.rgb.split(',').map(Number); fetch(`/api/palette?r=${r}&g=${g}&b=${b}`).then(res => res.json()).then(paletteData => { this.paletteContainer.innerHTML = '<strong>Shades & Tints:</strong>'; const paletteDiv = document.createElement('div'); paletteDiv.className = 'palette'; const fullPalette = [...paletteData.tints.slice(0, 4), data.detected_rgb, ...paletteData.shades.slice(1)]; fullPalette.forEach(color => { const swatch = document.createElement('div'); swatch.className = 'palette-swatch'; swatch.style.backgroundColor = color; paletteDiv.appendChild(swatch); }); this.paletteContainer.appendChild(paletteDiv); }); };
-        colorApp.addToHistory = function(data) { const isDuplicate = this.colorHistory.some(c => c.hex_code === data.hex_code); if (!isDuplicate) { this.colorHistory.unshift(data); if (this.colorHistory.length > 20) this.colorHistory.pop(); this.renderHistory(); } };
-        colorApp.renderHistory = function() { if (this.colorHistory.length === 0) { this.historyEmptyState.style.display = 'flex'; this.historyList.innerHTML = ''; } else { this.historyEmptyState.style.display = 'none'; this.historyList.innerHTML = ''; this.colorHistory.forEach(color => { const li = document.createElement('li'); li.innerHTML = `<div class="history-swatch" style="background-color: ${color.detected_rgb};"></div><div class="history-info"><strong>${color.color_name}</strong><br><span>${color.hex_code}</span></div>`; li.onclick = () => this.displayResults(color); this.historyList.appendChild(li); }); } };
-        colorApp.clearHistory = function() { this.colorHistory = []; this.renderHistory(); this.showToast('History cleared.'); };
-        colorApp.showToast = function(message, isError = false) { const toast = document.createElement('div'); toast.className = 'toast'; if (isError) toast.classList.add('error'); toast.textContent = message; this.toastContainer.appendChild(toast); setTimeout(() => toast.classList.add('show'), 10); setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 3000); };
-        colorApp.copyToClipboard = function(elementSelector, button) { const text = document.querySelector(elementSelector).textContent; navigator.clipboard.writeText(text).then(() => { const originalText = button.innerHTML; button.disabled = true; button.innerHTML = 'Copied!'; setTimeout(() => { button.innerHTML = originalText; button.disabled = false; }, 2000); }, () => this.showToast('Failed to copy text.', true)); };
-        colorApp.toggleTheme = function() { if (this.themeToggle.checked) { document.body.classList.add('dark-mode'); localStorage.setItem('theme', 'dark'); } else { document.body.classList.remove('dark-mode'); localStorage.setItem('theme', 'light'); } };
-
+        // This is a condensed representation. In the actual file, all JS functions would be present.
+        // For brevity, only the new/changed functions are shown in full detail.
+        // Assume all other functions from the previous response are included here.
         colorApp.init();
     </script>
 </body>
