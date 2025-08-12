@@ -124,8 +124,10 @@
                 this.setupZoomControls();
                 this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
                 
-                // Loupe events
-                this.canvas.addEventListener('mousemove', (e) => this.updateLoupe(e));
+                // Loupe events with performance debounce
+                this.canvas.addEventListener('mousemove', this.debounce((e) => {
+                    this.updateLoupe(e);
+                }, 5));
                 this.canvas.addEventListener('mouseenter', () => { if(this.originalImage) this.loupe.style.display = 'block'; });
                 this.canvas.addEventListener('mouseleave', () => { this.loupe.style.display = 'none'; });
 
@@ -142,6 +144,15 @@
 
                 // Clear History
                 this.clearHistoryBtn.addEventListener('click', () => this.clearHistory());
+            },
+
+            debounce(func, delay) {
+                let timeout;
+                return function(...args) {
+                    const context = this;
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(context, args), delay);
+                };
             },
 
             handleKeyDown(e) {
@@ -207,11 +218,18 @@
                                     canvas: true,
                                     disablePan: true // Initially disable pan, enable with spacebar
                                 });
+                                
+                                // UPDATED: Wheel listener with focal point for zoom-to-cursor
                                 this.canvasContainer.addEventListener('wheel', (e) => {
-                                    this.panzoomInstance.zoomWithWheel(e, { animate: true });
+                                    e.preventDefault();
+                                    this.panzoomInstance.zoomWithWheel(e, { 
+                                        animate: true,
+                                        focal: { x: e.clientX, y: e.clientY }
+                                    });
                                 });
                                 this.canvas.addEventListener('panzoomzoom', (e) => this.updateNavigator());
                                 this.canvas.addEventListener('panzoompan', (e) => this.updateNavigator());
+                                
                                 this.setupNavigator();
                                 this.resetUploadButton();
                             }
@@ -236,16 +254,76 @@
             },
 
             resizeImage(file, callback) {
-                // ... (resizeImage function from previous response remains unchanged)
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        let { width, height } = img;
+                        if (width > height) {
+                            if (width > this.MAX_IMAGE_DIMENSION) {
+                                height *= this.MAX_IMAGE_DIMENSION / width;
+                                width = this.MAX_IMAGE_DIMENSION;
+                            }
+                        } else {
+                            if (height > this.MAX_IMAGE_DIMENSION) {
+                                width *= this.MAX_IMAGE_DIMENSION / height;
+                                height = this.MAX_IMAGE_DIMENSION;
+                            }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        canvas.toBlob(callback, file.type, 0.9); // 90% quality
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
             },
 
             handleCanvasClick(e) {
                 if (!this.currentImageFile || !this.panzoomInstance || this.isPanning) return;
-                // ... (handleCanvasClick function from previous response remains unchanged)
+                const rect = this.canvas.getBoundingClientRect();
+                const pan = this.panzoomInstance.getPan();
+                const scale = this.panzoomInstance.getScale();
+                const x = (e.clientX - rect.left - pan.x) / scale;
+                const y = (e.clientY - rect.top - pan.y) / scale;
+                this.loaderContainer.style.display = 'flex';
+                const formData = new FormData();
+                formData.append('image', this.currentImageFile);
+                formData.append('x', Math.round(x));
+                formData.append('y', Math.round(y));
+                fetch('/api/detect', { method: 'POST', body: formData })
+                    .then(response => response.ok ? response.json() : response.json().then(err => Promise.reject(err)))
+                    .then(data => {
+                        this.loaderContainer.style.display = 'none';
+                        this.displayResults(data);
+                        this.addToHistory(data);
+                    })
+                    .catch(error => {
+                        this.loaderContainer.style.display = 'none';
+                        this.showToast(error.detail || 'Could not detect color.', true);
+                    });
             },
 
             updateLoupe(e) {
-                // ... (updateLoupe function from previous response remains unchanged)
+                if (!this.originalImage || !this.panzoomInstance) return;
+                const rect = this.canvas.getBoundingClientRect();
+                const pan = this.panzoomInstance.getPan();
+                const scale = this.panzoomInstance.getScale();
+                const imgX = (e.clientX - rect.left - pan.x) / scale;
+                const imgY = (e.clientY - rect.top - pan.y) / scale;
+                
+                this.loupe.style.left = `${e.clientX - 75}px`;
+                this.loupe.style.top = `${e.clientY - 75}px`;
+                
+                const zoomFactor = 4; // Loupe's fixed magnification
+                
+                // UPDATED: Loupe is now independent of the main canvas zoom scale
+                this.loupe.style.backgroundSize = `${this.originalImage.width * zoomFactor}px ${this.originalImage.height * zoomFactor}px`;
+                this.loupe.style.backgroundPosition = `-${imgX * zoomFactor - 75}px -${imgY * zoomFactor - 75}px`;
+                this.loupe.style.backgroundImage = `url(${this.originalImage.src})`;
             },
             
             setupNavigator() {
@@ -255,7 +333,7 @@
             },
 
             updateNavigator() {
-                if (!this.originalImage) return;
+                if (!this.originalImage || !this.panzoomInstance) return;
                 const pan = this.panzoomInstance.getPan();
                 const scale = this.panzoomInstance.getScale();
                 const containerRect = this.canvasContainer.getBoundingClientRect();
@@ -272,7 +350,27 @@
             },
             
             displayResults(data) {
-                // ... (displayResults function from previous response remains unchanged)
+                this.colorNameSpan.textContent = data.color_name;
+                this.hexCodeSpan.textContent = data.hex_code;
+                this.rgbValueSpan.textContent = data.rgb;
+                this.colorBox.style.backgroundColor = data.detected_rgb;
+                this.resultsCard.classList.add('visible');
+                const [r, g, b] = data.rgb.split(',').map(Number);
+                fetch(`/api/palette?r=${r}&g=${g}&b=${b}`)
+                    .then(res => res.json())
+                    .then(paletteData => {
+                        this.paletteContainer.innerHTML = '<strong>Shades & Tints:</strong>';
+                        const paletteDiv = document.createElement('div');
+                        paletteDiv.className = 'palette';
+                        const fullPalette = [...paletteData.tints.slice(0, 4), data.detected_rgb, ...paletteData.shades.slice(1)];
+                        fullPalette.forEach(color => {
+                            const swatch = document.createElement('div');
+                            swatch.className = 'palette-swatch';
+                            swatch.style.backgroundColor = color;
+                            paletteDiv.appendChild(swatch);
+                        });
+                        this.paletteContainer.appendChild(paletteDiv);
+                    });
             },
 
             addToHistory(data) {
@@ -287,7 +385,7 @@
             renderHistory() {
                 if (this.colorHistory.length === 0) {
                     this.historyEmptyState.style.display = 'flex';
-                    this.historyList.innerHTML = ''; // Clear just in case
+                    this.historyList.innerHTML = '';
                 } else {
                     this.historyEmptyState.style.display = 'none';
                     this.historyList.innerHTML = '';
@@ -307,26 +405,41 @@
             },
 
             showToast(message, isError = false) {
-                // ... (showToast function from previous response remains unchanged)
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                if (isError) toast.classList.add('error');
+                toast.textContent = message;
+                this.toastContainer.appendChild(toast);
+                setTimeout(() => toast.classList.add('show'), 10);
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    toast.addEventListener('transitionend', () => toast.remove());
+                }, 3000);
             },
 
             copyToClipboard(elementSelector, button) {
-                // ... (copyToClipboard function from previous response remains unchanged)
+                const text = document.querySelector(elementSelector).textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    const originalText = button.innerHTML;
+                    button.disabled = true;
+                    button.innerHTML = 'Copied!';
+                    setTimeout(() => {
+                        button.innerHTML = originalText;
+                        button.disabled = false;
+                    }, 2000);
+                }, () => this.showToast('Failed to copy text.', true));
             },
 
             toggleTheme() {
-                // ... (toggleTheme function from previous response remains unchanged)
+                if (this.themeToggle.checked) {
+                    document.body.classList.add('dark-mode');
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                    localStorage.setItem('theme', 'light');
+                }
             }
         };
-
-        // Re-add the unchanged functions to the final script
-        colorApp.resizeImage = function(file, callback) { const reader = new FileReader(); reader.onload = (e) => { const img = new Image(); img.onload = () => { let { width, height } = img; if (width > height) { if (width > this.MAX_IMAGE_DIMENSION) { height *= this.MAX_IMAGE_DIMENSION / width; width = this.MAX_IMAGE_DIMENSION; } } else { if (height > this.MAX_IMAGE_DIMENSION) { width *= this.MAX_IMAGE_DIMENSION / height; height = this.MAX_IMAGE_DIMENSION; } } const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height); canvas.toBlob(callback, file.type, 0.9); }; img.src = e.target.result; }; reader.readAsDataURL(file); };
-        colorApp.handleCanvasClick = function(e) { if (!this.currentImageFile || !this.panzoomInstance || this.isPanning) return; const rect = this.canvas.getBoundingClientRect(); const pan = this.panzoomInstance.getPan(); const scale = this.panzoomInstance.getScale(); const x = (e.clientX - rect.left - pan.x) / scale; const y = (e.clientY - rect.top - pan.y) / scale; this.loaderContainer.style.display = 'flex'; const formData = new FormData(); formData.append('image', this.currentImageFile); formData.append('x', Math.round(x)); formData.append('y', Math.round(y)); fetch('/api/detect', { method: 'POST', body: formData }).then(response => response.ok ? response.json() : response.json().then(err => Promise.reject(err))).then(data => { this.loaderContainer.style.display = 'none'; this.displayResults(data); this.addToHistory(data); }).catch(error => { this.loaderContainer.style.display = 'none'; this.showToast(error.detail || 'Could not detect color.', true); }); };
-        colorApp.updateLoupe = function(e) { if (!this.originalImage || !this.panzoomInstance) return; const rect = this.canvas.getBoundingClientRect(); const pan = this.panzoomInstance.getPan(); const scale = this.panzoomInstance.getScale(); const imgX = (e.clientX - rect.left - pan.x) / scale; const imgY = (e.clientY - rect.top - pan.y) / scale; this.loupe.style.left = `${e.clientX - 75}px`; this.loupe.style.top = `${e.clientY - 75}px`; const zoomFactor = 4; this.loupe.style.backgroundImage = `url(${this.originalImage.src})`; this.loupe.style.backgroundSize = `${this.originalImage.width * scale * zoomFactor}px ${this.originalImage.height * scale * zoomFactor}px`; this.loupe.style.backgroundPosition = `-${imgX * scale * zoomFactor - 75}px -${imgY * scale * zoomFactor - 75}px`; };
-        colorApp.displayResults = function(data) { this.colorNameSpan.textContent = data.color_name; this.hexCodeSpan.textContent = data.hex_code; this.rgbValueSpan.textContent = data.rgb; this.colorBox.style.backgroundColor = data.detected_rgb; this.resultsCard.classList.add('visible'); const [r, g, b] = data.rgb.split(',').map(Number); fetch(`/api/palette?r=${r}&g=${g}&b=${b}`).then(res => res.json()).then(paletteData => { this.paletteContainer.innerHTML = '<strong>Shades & Tints:</strong>'; const paletteDiv = document.createElement('div'); paletteDiv.className = 'palette'; const fullPalette = [...paletteData.tints.slice(0, 4), data.detected_rgb, ...paletteData.shades.slice(1)]; fullPalette.forEach(color => { const swatch = document.createElement('div'); swatch.className = 'palette-swatch'; swatch.style.backgroundColor = color; paletteDiv.appendChild(swatch); }); this.paletteContainer.appendChild(paletteDiv); }); };
-        colorApp.showToast = function(message, isError = false) { const toast = document.createElement('div'); toast.className = 'toast'; if (isError) toast.classList.add('error'); toast.textContent = message; this.toastContainer.appendChild(toast); setTimeout(() => toast.classList.add('show'), 10); setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 3000); };
-        colorApp.copyToClipboard = function(elementSelector, button) { const text = document.querySelector(elementSelector).textContent; navigator.clipboard.writeText(text).then(() => { const originalText = button.innerHTML; button.disabled = true; button.innerHTML = 'Copied!'; setTimeout(() => { button.innerHTML = originalText; button.disabled = false; }, 2000); }, () => this.showToast('Failed to copy text.', true)); };
-        colorApp.toggleTheme = function() { if (this.themeToggle.checked) { document.body.classList.add('dark-mode'); localStorage.setItem('theme', 'dark'); } else { document.body.classList.remove('dark-mode'); localStorage.setItem('theme', 'light'); } };
         
         colorApp.init();
     </script>
