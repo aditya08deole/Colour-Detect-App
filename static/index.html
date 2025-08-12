@@ -67,22 +67,25 @@
                         <div id="upload-loader" class="loader" style="display: none;"></div>
                     </label>
                     <div class="zoom-panel">
-                        <button id="zoom-out-btn" title="Zoom Out" aria-label="Zoom Out"><svg><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
-                        <input type="range" id="zoom-slider" min="0.1" max="30" value="1" step="0.1">
-                        <input type="number" id="zoom-input" value="100">
-                        <button id="zoom-in-btn" title="Zoom In" aria-label="Zoom In"><svg><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                        <button id="zoom-out-btn" title="Zoom Out" aria-label="Zoom Out"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                        <input type="range" id="zoom-slider" min="0.1" max="30" value="1" step="0.1" aria-label="Zoom slider">
+                        <input type="number" id="zoom-input" value="100" aria-label="Zoom percentage">
+                        <button id="zoom-in-btn" title="Zoom In" aria-label="Zoom In"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
                         <button id="fit-zoom-btn" title="Fit to View" aria-label="Fit to View"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
                     </div>
                 </div>
                 <div class="canvas-container" id="canvas-container">
                     <div id="upload-area" class="upload-area">
-                        <p>Drag & Drop Image Here</p>
+                        <p>Drag & Drop Image Here or Click</p>
                         <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/webp">
                     </div>
                     <canvas id="imageCanvas"></canvas>
                     <canvas id="pixelGridCanvas"></canvas>
                     <div id="navigator"><div id="navigator-view"></div></div>
                     <div id="loader-container" class="loader-container" style="display:none;"><div class="loader" style="width:50px; height:50px;"></div></div>
+                    <div id="mobile-loupe">
+                        <div class="loupe-crosshair"></div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -126,6 +129,7 @@
             zoomInBtn: document.getElementById('zoom-in-btn'),
             zoomOutBtn: document.getElementById('zoom-out-btn'),
             fitZoomBtn: document.getElementById('fit-zoom-btn'),
+            mobileLoupe: document.getElementById('mobile-loupe'),
             
             // State
             currentImageFile: null,
@@ -134,6 +138,8 @@
             colorHistory: [],
             isPanning: false,
             lastPointerEvent: null,
+            isTransformDirty: false, // FIX: For debouncing transform updates
+            activeTouch: false,      // FIX: For mobile loupe state
             MAX_IMAGE_DIMENSION: 1920,
             MAGNIFIER_ZOOM: 8,
             minZoom: 0.1,
@@ -146,18 +152,27 @@
                 this.themeToggle.addEventListener('change', () => this.toggleTheme());
                 window.addEventListener('keydown', (e) => this.handleKeyDown(e));
                 window.addEventListener('keyup', (e) => this.handleKeyUp(e));
-                const pointerMoveHandler = this.debounce((e) => { this.lastPointerEvent = e; this.updateMagnifier(e); }, 10);
+
+                // Desktop events
                 this.canvasContainer.addEventListener('pointerdown', (e) => { this.lastPointerEvent = e; });
-                this.canvasContainer.addEventListener('pointermove', pointerMoveHandler);
+                const pointerMoveHandler = (e) => { this.lastPointerEvent = e; this.updateMagnifier(e); };
+                this.canvasContainer.addEventListener('pointermove', this.debounce(pointerMoveHandler, 10));
                 this.canvasContainer.addEventListener('click', (e) => this.handleCanvasClick(e));
+
+                // UPGRADE: Mobile Touch events for Loupe
+                this.canvasContainer.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
+                this.canvasContainer.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
+                this.canvasContainer.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+
                 if (localStorage.getItem('theme') === 'dark') { this.themeToggle.checked = true; document.body.classList.add('dark-mode'); }
+                this.drawPixelGrid(); // Initial draw for theme
             },
 
             // --- Event Handlers & Setup ---
             debounce(func, delay) { let timeout; return function(...args) { const context = this; clearTimeout(timeout); timeout = setTimeout(() => func.apply(context, args), delay); }; },
             handleKeyDown(e) { if (e.code === 'Space' && this.originalImage) { e.preventDefault(); if (this.isPanning) return; this.isPanning = true; this.canvas.style.cursor = 'grab'; this.panzoomInstance.setOptions({ disablePan: false }); } },
             handleKeyUp(e) { if (e.code === 'Space' && this.originalImage) { this.isPanning = false; this.canvas.style.cursor = 'crosshair'; this.panzoomInstance.setOptions({ disablePan: true }); } },
-            setupDragAndDrop() { const preventDefaults = e => { e.preventDefault(); e.stopPropagation(); }; ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => this.uploadArea.addEventListener(eventName, preventDefaults, false)); ['dragenter', 'dragover'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.add('dragover'), false)); ['dragleave', 'drop'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.remove('dragover'), false)); this.uploadArea.addEventListener('drop', (e) => this.handleFiles(e.dataTransfer.files), false); },
+            setupDragAndDrop() { ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => { this.uploadArea.addEventListener(eventName, e => {e.preventDefault(); e.stopPropagation();}, false); }); ['dragenter', 'dragover'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.add('dragover'), false)); ['dragleave', 'drop'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.remove('dragover'), false)); this.uploadArea.addEventListener('drop', (e) => this.handleFiles(e.dataTransfer.files), false); },
 
             setupZoomControls() {
                 this.zoomInBtn.addEventListener('click', () => this.panzoomInstance?.zoomIn({ animate: true }));
@@ -170,17 +185,22 @@
                 });
 
                 this.zoomInput.addEventListener('change', (e) => {
-                    const percentage = parseFloat(e.target.value);
-                    if (!isNaN(percentage)) {
-                        this.panzoomInstance.zoom(percentage / 100, { animate: true });
+                    // FIX: Add validation for zoom input
+                    let percentage = parseFloat(e.target.value);
+                    if (isNaN(percentage) || percentage < 1) {
+                        percentage = 100 * (this.panzoomInstance?.getScale() || 1);
                     }
+                    this.panzoomInstance.zoom(percentage / 100, { animate: true });
                 });
             },
 
             // --- Image Loading and Processing ---
             handleFiles(files) {
                 const file = files[0];
-                if (!file || !file.type.startsWith('image/')) return;
+                if (!file || !file.type.startsWith('image/')) {
+                    this.showToast('Please select a valid image file.', true);
+                    return;
+                }
                 this.uploadLabel.setAttribute('disabled', true);
                 this.uploadText.textContent = 'Processing...';
                 this.uploadLoader.style.display = 'block';
@@ -200,22 +220,19 @@
                         this.canvas.style.display = 'block';
                         
                         if (this.panzoomInstance) this.panzoomInstance.destroy();
-                        this.panzoomInstance = Panzoom(this.canvas, {
-                            maxScale: 30,
-                            canvas: true,
-                            disablePan: true,
-                            contain: 'outside' // Keep image within bounds
-                        });
+                        this.panzoomInstance = Panzoom(this.canvas, { maxScale: 30, canvas: true, disablePan: true, contain: 'outside' });
                         
+                        // FIX: Performance - use a single throttled handler for wheel events
                         this.canvasContainer.addEventListener('wheel', (e) => {
                             e.preventDefault();
                             this.panzoomInstance.zoomWithWheel(e, { animate: false });
+                            this.onTransformChange();
                         });
 
-                        this.canvas.addEventListener('panzoomzoom', (e) => this.onTransformChange(e));
+                        this.canvas.addEventListener('panzoomzoom', () => this.onTransformChange());
                         this.canvas.addEventListener('panzoompan', () => this.onTransformChange());
                         
-                        this.fitImageToView(false); // Initial fit
+                        this.fitImageToView(false);
                         this.setupNavigator();
                         this.resetUploadButton();
                         this.onTransformChange();
@@ -223,64 +240,28 @@
                     this.originalImage.src = resizedDataUrl;
                 });
             },
-
-            resizeImage(file, callback) {
-                const reader = new FileReader();
-                reader.onerror = () => callback(null, null);
-                reader.onload = (e) => {
-                    const img = new Image();
-                    img.onerror = () => callback(null, null);
-                    img.onload = () => {
-                        let { width, height } = img;
-                        const ratio = width / height;
-                        if (width > this.MAX_IMAGE_DIMENSION) { width = this.MAX_IMAGE_DIMENSION; height = width / ratio; }
-                        if (height > this.MAX_IMAGE_DIMENSION) { height = this.MAX_IMAGE_DIMENSION; width = height * ratio; }
-                        const canvas = document.createElement('canvas');
-                        canvas.width = width;
-                        canvas.height = height;
-                        const ctx = canvas.getContext('2d');
-                        ctx.drawImage(img, 0, 0, width, height);
-                        const dataUrl = canvas.toDataURL(file.type);
-                        canvas.toBlob(blob => callback(blob, dataUrl), file.type, 0.9);
-                    };
-                    img.src = e.target.result;
-                };
-                reader.readAsDataURL(file);
-            },
             
-            fitImageToView(animate = true) {
-                if (!this.panzoomInstance || !this.originalImage) return;
-                const containerRect = this.canvasContainer.getBoundingClientRect();
-                const imgWidth = this.originalImage.width;
-                const imgHeight = this.originalImage.height;
+            resizeImage(file, callback) { /* (No changes needed in this function) */ const reader = new FileReader(); reader.onerror = () => callback(null, null); reader.onload = (e) => { const img = new Image(); img.onerror = () => callback(null, null); img.onload = () => { let { width, height } = img; const ratio = width / height; if (width > this.MAX_IMAGE_DIMENSION) { width = this.MAX_IMAGE_DIMENSION; height = width / ratio; } if (height > this.MAX_IMAGE_DIMENSION) { height = this.MAX_IMAGE_DIMENSION; width = height * ratio; } const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height); const dataUrl = canvas.toDataURL(file.type); canvas.toBlob(blob => callback(blob, dataUrl), file.type, 0.9); }; img.src = e.target.result; }; reader.readAsDataURL(file); },
+            
+            fitImageToView(animate = true) { /* (No changes needed in this function) */ if (!this.panzoomInstance || !this.originalImage) return; const containerRect = this.canvasContainer.getBoundingClientRect(); const imgWidth = this.originalImage.width; const imgHeight = this.originalImage.height; const scaleX = containerRect.width / imgWidth; const scaleY = containerRect.height / imgHeight; const newScale = Math.min(scaleX, scaleY); this.minZoom = newScale; this.zoomSlider.min = newScale; this.panzoomInstance.zoom(newScale, { animate }); this.panzoomInstance.pan( (containerRect.width - imgWidth * newScale) / 2, (containerRect.height - imgHeight * newScale) / 2, { animate } ); },
 
-                const scaleX = containerRect.width / imgWidth;
-                const scaleY = containerRect.height / imgHeight;
-                const newScale = Math.min(scaleX, scaleY);
-                
-                this.minZoom = newScale;
-                this.zoomSlider.min = newScale;
-                
-                this.panzoomInstance.zoom(newScale, { animate });
-                this.panzoomInstance.pan(
-                    (containerRect.width - imgWidth * newScale) / 2,
-                    (containerRect.height - imgHeight * newScale) / 2,
-                    { animate }
-                );
+            // FIX: Debounced/Throttled transform handler for major performance boost
+            onTransformChange() {
+                if (this.isTransformDirty) return;
+                this.isTransformDirty = true;
+                requestAnimationFrame(() => {
+                    this.updateNavigator();
+                    this.drawPixelGrid();
+                    if (this.lastPointerEvent) this.updateMagnifier(this.lastPointerEvent);
+                    const scale = this.panzoomInstance.getScale();
+                    this.zoomSlider.value = scale;
+                    this.zoomInput.value = Math.round(scale * 100);
+                    this.isTransformDirty = false;
+                });
             },
 
-            onTransformChange(e) {
-                this.updateNavigator();
-                this.drawPixelGrid();
-                if (this.lastPointerEvent) this.updateMagnifier(this.lastPointerEvent);
-                const scale = this.panzoomInstance.getScale();
-                this.zoomSlider.value = scale;
-                this.zoomInput.value = Math.round(scale * 100);
-            },
-
-            handleCanvasClick(e) {
-                const pointer = e.touches ? e.touches[0] : e;
-                if (!this.currentImageFile || !this.panzoomInstance || this.isPanning) return;
+            handleCanvasClick(pointer) {
+                if (!this.currentImageFile || !this.panzoomInstance || this.isPanning || this.activeTouch) return;
                 const rect = this.canvasContainer.getBoundingClientRect();
                 const pan = this.panzoomInstance.getPan();
                 const scale = this.panzoomInstance.getScale();
@@ -301,7 +282,7 @@
 
             // --- UI Update Functions ---
             updateMagnifier(e) {
-                if (!this.originalImage || !this.panzoomInstance) return;
+                if (!this.originalImage || !this.panzoomInstance || !e) return;
                 const pointer = e.touches ? e.touches[0] : e;
                 const rect = this.canvasContainer.getBoundingClientRect();
                 const pan = this.panzoomInstance.getPan();
@@ -316,38 +297,26 @@
                 this.magnifierCanvas.style.backgroundPosition = `${bgPosX}px ${bgPosY}px`;
             },
             
-            drawPixelGrid() {
-                if (!this.panzoomInstance) return;
-                const pan = this.panzoomInstance.getPan();
-                const scale = this.panzoomInstance.getScale();
-                const ctx = this.pixelGridCtx;
-                const canvasWidth = this.pixelGridCanvas.width;
-                const canvasHeight = this.pixelGridCanvas.height;
-                
-                ctx.clearRect(0, 0, canvasWidth, canvasHeight);
-                if (scale < 12) return;
+            drawPixelGrid() { /* (No changes needed in this function) */ if (!this.panzoomInstance) return; const pan = this.panzoomInstance.getPan(); const scale = this.panzoomInstance.getScale(); const ctx = this.pixelGridCtx; const canvasWidth = this.pixelGridCanvas.width; const canvasHeight = this.pixelGridCanvas.height; ctx.clearRect(0, 0, canvasWidth, canvasHeight); if (scale < 12) return; ctx.lineWidth = 1; ctx.strokeStyle = document.body.classList.contains('dark-mode') ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'; const left = pan.x % scale; const top = pan.y % scale; for (let x = left; x < canvasWidth; x += scale) { ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, canvasHeight); ctx.stroke(); } for (let y = top; y < canvasHeight; y += scale) { ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(canvasWidth, y + 0.5); ctx.stroke(); } },
 
-                ctx.lineWidth = 1;
-                ctx.strokeStyle = document.body.classList.contains('dark-mode') ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)';
-                const left = pan.x % scale;
-                const top = pan.y % scale;
+            // --- UPGRADE: Mobile Loupe Functions ---
+            handleTouchStart(e) { e.preventDefault(); if (!this.originalImage) return; this.activeTouch = true; this.mobileLoupe.style.backgroundImage = `url(${this.originalImage.src})`; this.mobileLoupe.style.backgroundSize = `${this.originalImage.width * this.MAGNIFIER_ZOOM}px ${this.originalImage.height * this.MAGNIFIER_ZOOM}px`; this.mobileLoupe.style.display = 'block'; this.updateLoupePosition(e.touches[0]); },
+            handleTouchMove(e) { e.preventDefault(); if (!this.activeTouch) return; requestAnimationFrame(() => this.updateLoupePosition(e.touches[0])); },
+            handleTouchEnd(e) { if (!this.activeTouch) return; this.activeTouch = false; this.mobileLoupe.style.display = 'none'; this.handleCanvasClick(e.changedTouches[0]); },
+            updateLoupePosition(touch) { if (!this.panzoomInstance) return; const rect = this.canvasContainer.getBoundingClientRect(); const pan = this.panzoomInstance.getPan(); const scale = this.panzoomInstance.getScale(); const imgX = (touch.clientX - rect.left - pan.x) / scale; const imgY = (touch.clientY - rect.top - pan.y) / scale; const bgPosX = -(imgX * this.MAGNIFIER_ZOOM) + (this.mobileLoupe.offsetWidth / 2); const bgPosY = -(imgY * this.MAGNIFIER_ZOOM) + (this.mobileLoupe.offsetHeight / 2); this.mobileLoupe.style.backgroundPosition = `${bgPosX}px ${bgPosY}px`; const loupeX = touch.clientX - rect.left - (this.mobileLoupe.offsetWidth / 2); const loupeY = touch.clientY - rect.top - this.mobileLoupe.offsetHeight - 30; this.mobileLoupe.style.transform = `translate(${loupeX}px, ${loupeY}px)`; },
 
-                for (let x = left; x < canvasWidth; x += scale) { ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, canvasHeight); ctx.stroke(); }
-                for (let y = top; y < canvasHeight; y += scale) { ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(canvasWidth, y + 0.5); ctx.stroke(); }
-            },
-
-            // Other functions are assumed to be here...
-            resetUI: function() { this.uploadArea.style.display = 'flex'; this.canvas.style.display = 'none'; this.navigator.style.display = 'none'; this.resetUploadButton(); this.pixelGridCtx.clearRect(0,0,this.pixelGridCanvas.width, this.pixelGridCanvas.height); },
+            // --- Other Functions ---
+            resetUI: function() { this.uploadArea.style.display = 'flex'; this.canvas.style.display = 'none'; this.navigator.style.display = 'none'; this.resetUploadButton(); if (this.pixelGridCtx) this.pixelGridCtx.clearRect(0,0,this.pixelGridCanvas.width, this.pixelGridCanvas.height); },
             resetUploadButton: function() { this.uploadLabel.removeAttribute('disabled'); this.uploadText.textContent = 'Upload New Image'; this.uploadLoader.style.display = 'none'; },
             setupNavigator: function() { this.navigator.style.display = 'block'; this.navigator.style.backgroundImage = `url(${this.originalImage.src})`; this.updateNavigator(); },
             updateNavigator: function() { if (!this.originalImage || !this.panzoomInstance) return; const pan = this.panzoomInstance.getPan(); const scale = this.panzoomInstance.getScale(); const containerRect = this.canvasContainer.getBoundingClientRect(); const navRect = this.navigator.getBoundingClientRect(); if (navRect.width === 0) return; const viewWidth = containerRect.width / scale; const viewHeight = containerRect.height / scale; const navScale = navRect.width / this.originalImage.width; this.navigatorView.style.width = `${viewWidth * navScale}px`; this.navigatorView.style.height = `${viewHeight * navScale}px`; this.navigatorView.style.left = `${-pan.x * navScale}px`; this.navigatorView.style.top = `${-pan.y * navScale}px`; },
-            displayResults: function(data) { this.colorNameSpan.textContent = data.color_name; this.hexCodeSpan.textContent = data.hex_code; this.rgbValueSpan.textContent = data.rgb; this.colorBox.style.backgroundColor = data.detected_rgb; this.resultsCard.classList.add('visible'); const [r, g, b] = data.rgb.split(',').map(Number); fetch(`/api/palette?r=${r}&g=${g}&b=${b}`).then(res => res.json()).then(paletteData => { this.paletteContainer.innerHTML = '<strong>Shades & Tints:</strong>'; const paletteDiv = document.createElement('div'); paletteDiv.className = 'palette'; const fullPalette = [...paletteData.tints.slice(0, 4), data.detected_rgb, ...paletteData.shades.slice(1)]; fullPalette.forEach(color => { const swatch = document.createElement('div'); swatch.className = 'palette-swatch'; swatch.style.backgroundColor = color; paletteDiv.appendChild(swatch); }); this.paletteContainer.appendChild(paletteDiv); }); },
+            displayResults: function(data) { this.colorNameSpan.textContent = data.color_name; this.hexCodeSpan.textContent = data.hex_code; this.rgbValueSpan.textContent = data.rgb; this.colorBox.style.backgroundColor = data.detected_rgb; this.resultsCard.classList.add('visible'); const [r, g, b] = data.rgb.split(',').map(Number); fetch(`/api/palette?r=${r}&g=${g}&b=${b}`).then(res => res.json()).then(paletteData => { this.paletteContainer.innerHTML = '<strong>Shades & Tints:</strong>'; const paletteDiv = document.createElement('div'); paletteDiv.className = 'palette'; const fullPalette = [...paletteData.tints.slice(0, 4), data.detected_rgb, ...paletteData.shades.slice(1,5)]; fullPalette.forEach(color => { const swatch = document.createElement('div'); swatch.className = 'palette-swatch'; swatch.style.backgroundColor = color; paletteDiv.appendChild(swatch); }); this.paletteContainer.appendChild(paletteDiv); }); },
             addToHistory: function(data) { const isDuplicate = this.colorHistory.some(c => c.hex_code === data.hex_code); if (!isDuplicate) { this.colorHistory.unshift(data); if (this.colorHistory.length > 20) this.colorHistory.pop(); this.renderHistory(); } },
             renderHistory: function() { if (this.colorHistory.length === 0) { this.historyEmptyState.style.display = 'flex'; this.historyList.innerHTML = ''; } else { this.historyEmptyState.style.display = 'none'; this.historyList.innerHTML = ''; this.colorHistory.forEach(color => { const li = document.createElement('li'); li.innerHTML = `<div class="history-swatch" style="background-color: ${color.detected_rgb};"></div><div class="history-info"><strong>${color.color_name}</strong><br><span>${color.hex_code}</span></div>`; li.onclick = () => this.displayResults(color); this.historyList.appendChild(li); }); } },
             clearHistory: function() { this.colorHistory = []; this.renderHistory(); this.showToast('History cleared.'); },
             showToast: function(message, isError = false) { const toast = document.createElement('div'); toast.className = 'toast'; if (isError) toast.classList.add('error'); toast.textContent = message; this.toastContainer.appendChild(toast); setTimeout(() => toast.classList.add('show'), 10); setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 3000); },
             copyToClipboard: function(elementSelector, button) { const text = document.querySelector(elementSelector).textContent; navigator.clipboard.writeText(text).then(() => { const originalText = button.innerHTML; button.disabled = true; button.innerHTML = 'Copied!'; setTimeout(() => { button.innerHTML = originalText; button.disabled = false; }, 2000); }, () => this.showToast('Failed to copy text.', true)); },
-            toggleTheme: function() { if (this.themeToggle.checked) { document.body.classList.add('dark-mode'); localStorage.setItem('theme', 'dark'); } else { document.body.classList.remove('dark-mode'); localStorage.setItem('theme', 'light'); } }
+            toggleTheme: function() { if (this.themeToggle.checked) { document.body.classList.add('dark-mode'); localStorage.setItem('theme', 'dark'); } else { document.body.classList.remove('dark-mode'); localStorage.setItem('theme', 'light'); } this.drawPixelGrid(); }
         };
         
         colorApp.init();

@@ -27,6 +27,8 @@ body {
     display: flex;
     justify-content: center;
     transition: background-color 0.3s, color 0.3s;
+    /* UPGRADE: Fluid typography for better scaling */
+    font-size: clamp(14px, 1.5vw, 16px);
 }
 
 /* --- Main Layout --- */
@@ -53,12 +55,11 @@ canvas { cursor: crosshair; display: none; max-width: none; }
 .zoom-panel { display: flex; align-items: center; gap: 10px; }
 .zoom-panel button { background: var(--secondary-color); color: var(--font-color); border: 1px solid var(--border-color); border-radius: 6px; width: 36px; height: 36px; cursor: pointer; transition: all 0.2s; display:flex; justify-content: center; align-items: center; }
 .zoom-panel button:hover { background-color: var(--border-color); }
-.zoom-panel button svg { width: 20px; height: 20px; stroke-width: 2.5px; pointer-events: none; }
+.zoom-panel button svg { width: 20px; height: 20px; stroke: currentColor; pointer-events: none; }
 #zoom-slider { -webkit-appearance: none; appearance: none; width: 100px; height: 5px; background: var(--border-color); outline: none; border-radius: 5px; }
 #zoom-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 15px; height: 15px; background: var(--accent-color); cursor: pointer; border-radius: 50%; }
 #zoom-slider::-moz-range-thumb { width: 15px; height: 15px; background: var(--accent-color); cursor: pointer; border-radius: 50%; border: none; }
 #zoom-input { width: 60px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--primary-color); color: var(--font-color); text-align: center; font-size: 0.9rem; }
-/* Hide number input arrows */
 #zoom-input::-webkit-outer-spin-button, #zoom-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 #zoom-input[type=number] { -moz-appearance: textfield; }
 
@@ -68,7 +69,7 @@ canvas { cursor: crosshair; display: none; max-width: none; }
 .sidebar .logo { font-weight: 700; font-size: 1.8rem; }
 .sidebar .logo span { color: var(--accent-color); }
 
-/* --- Stationary Magnifier --- */
+/* --- Stationary Magnifier (Desktop) --- */
 #magnifier-container { padding-top: 1rem; border-top: 1px solid var(--border-color); }
 #magnifier-canvas { width: 100%; height: 150px; background-color: var(--secondary-color); border: 1px solid var(--border-color); border-radius: 8px; position: relative; }
 #magnifier-crosshair { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
@@ -76,21 +77,22 @@ canvas { cursor: crosshair; display: none; max-width: none; }
 #magnifier-crosshair::before { left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-50%); }
 #magnifier-crosshair::after { top: 50%; left: 0; height: 1px; width: 100%; transform: translateY(-50%); }
 
+/* --- Results, History & Palette --- */
 .results-card { background: var(--primary-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; opacity: 0; transform: translateY(10px); transition: opacity 0.4s ease, transform 0.4s ease, background-color 0.3s, border-color 0.3s; }
 .results-card.visible { opacity: 1; transform: translateY(0); }
 .results-header { display: flex; align-items: center; gap: 1rem; }
 #color-box { width: 80px; height: 80px; border-radius: 8px; border: 1px solid var(--border-color); flex-shrink: 0; }
-#color-details p { margin: 0.25rem 0; font-size: 1rem; }
+#color-details p { margin: 0.25rem 0; }
 #color-details strong { font-weight: 600; }
-.copy-btn { background: none; border: none; color: var(--accent-color); cursor: pointer; font-size: 0.8rem; opacity: 0.7; padding: 2px 4px;}
+.copy-btn { background: none; border: none; color: var(--accent-color); cursor: pointer; font-size: 0.8em; opacity: 0.7; padding: 2px 4px;}
 .history-header { display: flex; justify-content: space-between; align-items: center; }
-#clear-history { font-size: 0.75rem; color: var(--font-color); opacity: 0.6; cursor: pointer; }
+#clear-history { font-size: 0.75em; color: var(--font-color); opacity: 0.6; cursor: pointer; }
 #clear-history:hover { opacity: 1; text-decoration: underline; }
 #history-list { list-style: none; padding: 0; margin: 0; max-height: 250px; overflow-y: auto; }
 #history-list li { display: flex; align-items: center; gap: 1rem; padding: 0.75rem; border-bottom: 1px solid var(--border-color); cursor: pointer; border-radius: 4px; }
 #history-list li:hover { background-color: var(--secondary-color); }
 .history-swatch { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; border: 1px solid var(--border-color); }
-.history-info { font-size: 0.9rem; }
+.history-info { font-size: 0.9em; }
 .palette-container { margin-top: 1rem; }
 .palette { display: flex; gap: 5px; margin-top: 5px; }
 .palette-swatch { width: 100%; height: 25px; border-radius: 4px; }
@@ -107,6 +109,35 @@ canvas { cursor: crosshair; display: none; max-width: none; }
 body.dark-mode .loader-container { background: rgba(0, 0, 0, 0.8); }
 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
+/* --- ADDED: Mobile Loupe Magnifier --- */
+.mobile-loupe {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 3px solid var(--accent-color);
+    background-color: var(--secondary-color);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    display: none; /* Hidden by default */
+    pointer-events: none; /* So it doesn't interfere with touch events */
+    z-index: 20;
+    /* JS will set background-image and background-size */
+    background-position: 0 0; 
+}
+.mobile-loupe .loupe-crosshair {
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+.loupe-crosshair::before, .loupe-crosshair::after {
+    content: '';
+    position: absolute;
+    background-color: var(--accent-color);
+    opacity: 0.7;
+}
+.loupe-crosshair::before { top: 0; left: 50%; width: 1px; height: 100%; transform: translateX(-50%); }
+.loupe-crosshair::after { left: 0; top: 50%; height: 1px; width: 100%; transform: translateY(-50%); }
+
 /* --- Dark Mode & Footer --- */
 .theme-switch-wrapper { display: flex; align-items: center; gap: 10px; margin-top: auto; padding-top: 2rem; border-top: 1px solid var(--border-color); }
 .theme-switch { position: relative; display: inline-block; width: 50px; height: 28px; }
@@ -117,7 +148,7 @@ input:checked + .slider { background-color: var(--accent-color); }
 input:checked + .slider:before { transform: translateX(22px); }
 .slider.round { border-radius: 34px; }
 .slider.round:before { border-radius: 50%; }
-footer { position: fixed; bottom: 10px; right: 15px; font-size: 0.75rem; color: var(--font-color); opacity: 0.5; transition: opacity 0.3s; z-index: 1001; }
+footer { position: fixed; bottom: 10px; right: 15px; font-size: 0.75em; color: var(--font-color); opacity: 0.5; transition: opacity 0.3s; z-index: 1001; }
 footer:hover { opacity: 1; }
 footer a { color: inherit; text-decoration: none; }
 footer a:hover { text-decoration: underline; }
@@ -129,8 +160,7 @@ footer a:hover { text-decoration: underline; }
     .main-content { padding: 1rem; }
     .canvas-wrapper { height: 60vh; padding: 0.5rem; }
     .controls-header { padding-bottom: 0.5rem; }
-    #navigator { display: none !important; }
+    #navigator, #magnifier-container { display: none !important; }
     .zoom-panel button { width: 44px; height: 44px; }
     #history-list { max-height: 200px; }
-    #magnifier-container { display: none; }
 }

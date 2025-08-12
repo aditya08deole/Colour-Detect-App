@@ -18,7 +18,7 @@ ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"]
 
 request_counts = defaultdict(lambda: {'count': 0, 'timestamp': 0})
 
-# --- NEW: Self-Contained RGB to CIELAB Conversion Function ---
+# --- Self-Contained RGB to CIELAB Conversion Function ---
 def rgb_to_lab(r, g, b):
     """Converts an RGB color to CIELAB space without scikit-image."""
     # Normalize RGB values
@@ -52,17 +52,18 @@ def rgb_to_lab(r, g, b):
 @lru_cache()
 def get_color_data():
     """
-    Loads color data, converts it to CIELAB space using our local function,
-    and caches it for high-performance lookups.
+    Loads color data, converts it to CIELAB space, and caches it.
     """
     index = ["color", "color_name", "hex", "R", "G", "B"]
     script_dir = os.path.dirname(__file__)
     csv_path = os.path.join(script_dir, 'colors.csv')
     try:
         df = pd.read_csv(csv_path, names=index, header=None)
+        if df.empty:
+            raise RuntimeError("Critical Error: colors.csv is empty or unreadable.")
+
         lookup_data = df[['color_name', 'hex']].to_dict('records')
         
-        # Use our new function to convert the dataset
         rgb_colors = df[['R', 'G', 'B']].to_numpy(dtype=np.uint8)
         lab_color_dataset = np.array([rgb_to_lab(r, g, b) for r, g, b in rgb_colors])
         
@@ -77,7 +78,6 @@ def find_closest_color(r, g, b, lookup_data: list, lab_color_dataset: np.ndarray
     """Finds the closest color name using Euclidean distance in the CIELAB space."""
     clicked_lab = rgb_to_lab(r, g, b)
     
-    # Calculate Euclidean distance in LAB space
     distances = np.linalg.norm(lab_color_dataset - clicked_lab, axis=1)
     min_index = np.argmin(distances)
     
@@ -85,7 +85,7 @@ def find_closest_color(r, g, b, lookup_data: list, lab_color_dataset: np.ndarray
     return closest_color["color_name"], str(closest_color["hex"])
 
 
-# --- API Endpoints (No changes needed below this line) ---
+# --- API Endpoints ---
 @app.post("/api/detect")
 async def detect_color(
     request: Request,
@@ -97,14 +97,16 @@ async def detect_color(
     """API endpoint to detect the color with security and performance in mind."""
     lookup_data, lab_color_dataset = cached_data
 
-    # Rate Limiting
-    client_ip = request.client.host
+    # UPGRADE: More robust rate limiting using IP + User-Agent
+    client_identifier = f"{request.client.host}:{request.headers.get('user-agent', 'unknown')}"
     current_time = time.time()
-    if current_time - request_counts[client_ip]['timestamp'] > RATE_LIMIT_SECONDS:
-        request_counts[client_ip] = {'count': 1, 'timestamp': current_time}
+    
+    if current_time - request_counts[client_identifier]['timestamp'] > RATE_LIMIT_SECONDS:
+        request_counts[client_identifier] = {'count': 1, 'timestamp': current_time}
     else:
-        request_counts[client_ip]['count'] += 1
-    if request_counts[client_ip]['count'] > MAX_REQUESTS:
+        request_counts[client_identifier]['count'] += 1
+    
+    if request_counts[client_identifier]['count'] > MAX_REQUESTS:
         raise HTTPException(status_code=429, detail="Too Many Requests.")
 
     # File Validation
@@ -133,22 +135,25 @@ async def detect_color(
 
 @app.get("/api/palette")
 def get_palette(r: int, g: int, b: int):
-    """Generates a simple palette of shades for a given color."""
-    shades = []
-    tints = []
+    """Generates a simple palette of shades and tints for a given color."""
     base_color = np.array([r, g, b])
-    white = np.array([255, 255, 255])
     
-    for i in np.linspace(1, 0.2, 5):
-        shade = (base_color * i).astype(int)
-        shades.append(f"rgb({shade[0]},{shade[1]},{shade[2]})")
-        
-    for i in np.linspace(0.2, 1, 5)[::-1]:
-        tint = (base_color + (white - base_color) * i).astype(int)
-        tints.append(f"rgb({tint[0]},{tint[1]},{tint[2]})")
+    # UPGRADE: Refactored to reduce code duplication
+    def generate_variant(color, mix_with, factors):
+        return [
+            (color + (mix_with - color) * i).astype(int)
+            for i in factors
+        ]
 
-    return {"shades": shades, "tints": tints}
+    tints = generate_variant(base_color, np.array([255, 255, 255]), np.linspace(0.2, 1, 5)[::-1])
+    shades = generate_variant(base_color, np.array([0, 0, 0]), np.linspace(0, 0.8, 5))
 
+    return {
+        "shades": [f"rgb({s[0]},{s[1]},{s[2]})" for s in shades],
+        "tints": [f"rgb({t[0]},{t[1]},{t[2]})" for t in tints]
+    }
+
+# --- Static Files & Frontend Serving ---
 static_dir = os.path.join(os.path.dirname(__file__), '..', 'static')
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
@@ -157,7 +162,7 @@ async def serve_frontend(request: Request):
     """Serves the main index.html file."""
     index_path = os.path.join(static_dir, 'index.html')
     try:
-        with open(index_path, "r") as f:
+        with open(index_path, "r", encoding="utf-8") as f:
             return HTMLResponse(content=f.read())
     except FileNotFoundError:
         return HTMLResponse(content="<h1>404 - Not Found</h1>", status_code=404)
