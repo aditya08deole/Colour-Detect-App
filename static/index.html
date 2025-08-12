@@ -174,9 +174,9 @@
             setupDragAndDrop() { const preventDefaults = e => { e.preventDefault(); e.stopPropagation(); }; ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => this.uploadArea.addEventListener(eventName, preventDefaults, false)); ['dragenter', 'dragover'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.add('dragover'), false)); ['dragleave', 'drop'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.remove('dragover'), false)); this.uploadArea.addEventListener('drop', (e) => this.handleFiles(e.dataTransfer.files), false); },
 
             setupZoomControls() {
-                this.zoomInBtn.addEventListener('click', () => this.panzoomInstance?.zoomIn());
-                this.zoomOutBtn.addEventListener('click', () => this.panzoomInstance?.zoomOut());
-                this.resetZoomBtn.addEventListener('click', () => this.panzoomInstance?.reset());
+                this.zoomInBtn.addEventListener('click', () => this.panzoomInstance?.zoomIn({ animate: true }));
+                this.zoomOutBtn.addEventListener('click', () => this.panzoomInstance?.zoomOut({ animate: true }));
+                this.resetZoomBtn.addEventListener('click', () => this.panzoomInstance?.reset({ animate: true }));
 
                 this.zoomSlider.addEventListener('input', (e) => {
                     const scale = parseFloat(e.target.value);
@@ -218,7 +218,7 @@
                         
                         this.canvasContainer.addEventListener('wheel', (e) => {
                             e.preventDefault();
-                            this.panzoomInstance.zoomWithWheel(e, { animate: false, step: 0.1 });
+                            this.panzoomInstance.zoomWithWheel(e, { animate: false });
                         });
 
                         this.canvas.addEventListener('panzoomzoom', (e) => this.onTransformChange(e));
@@ -226,7 +226,7 @@
                         
                         this.setupNavigator();
                         this.resetUploadButton();
-                        this.onTransformChange(); // Initial setup
+                        this.onTransformChange();
                     };
                     this.originalImage.src = resizedDataUrl;
                 });
@@ -261,7 +261,6 @@
                 this.drawPixelGrid();
                 if (this.lastPointerEvent) this.updateMagnifier(this.lastPointerEvent);
                 
-                // Sync zoom controls
                 const scale = this.panzoomInstance.getScale();
                 this.zoomSlider.value = scale;
                 this.zoomInput.value = Math.round(scale * 100);
@@ -270,7 +269,7 @@
             handleCanvasClick(e) {
                 const pointer = e.touches ? e.touches[0] : e;
                 if (!this.currentImageFile || !this.panzoomInstance || this.isPanning) return;
-                const rect = this.canvas.getBoundingClientRect();
+                const rect = this.canvasContainer.getBoundingClientRect(); // Use container for stable reference
                 const pan = this.panzoomInstance.getPan();
                 const scale = this.panzoomInstance.getScale();
                 const x = (pointer.clientX - rect.left - pan.x) / scale;
@@ -290,11 +289,15 @@
 
             // --- UI Update Functions ---
             updateMagnifier(e) {
-                if (!this.originalImage) return;
+                if (!this.originalImage || !this.panzoomInstance) return;
                 const pointer = e.touches ? e.touches[0] : e;
-                const rect = this.canvas.getBoundingClientRect();
+                
+                // BUG FIX: Use the stable container rect for reference, not the moving canvas rect.
+                const rect = this.canvasContainer.getBoundingClientRect();
                 const pan = this.panzoomInstance.getPan();
                 const scale = this.panzoomInstance.getScale();
+
+                // This correctly finds the pixel on the original image data.
                 const imgX = (pointer.clientX - rect.left - pan.x) / scale;
                 const imgY = (pointer.clientY - rect.top - pan.y) / scale;
 
