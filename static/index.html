@@ -3,10 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="An advanced color picker to detect and identify colors from any uploaded image with high perceptual accuracy, featuring advanced palettes and history.">
     <title>Color Picker Pro - Advanced Color Detector</title>
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
-    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -22,14 +20,14 @@
                 <p>Perceptually accurate color detection.</p>
             </div>
             
-            <div class="magnifier-container">
+            <div id="magnifier-container">
                 <h2>Magnifier</h2>
                 <div id="magnifier-canvas">
                     <div id="magnifier-crosshair"></div>
                 </div>
             </div>
 
-            <div class="results-container">
+            <div id="results-container">
                 <h2>Current Selection</h2>
                 <div id="results-card" class="results-card">
                     <div class="results-header">
@@ -40,19 +38,9 @@
                             <p><strong>RGB:</strong> <span id="rgbValue">N/A</span> <button class="copy-btn" onclick="colorApp.copyToClipboard('#rgbValue', this)">copy</button></p>
                         </div>
                     </div>
-                    <div class="palette-container">
-                        <div class="palette-tabs">
-                            <button class="palette-tab active" data-tab="shades_tints">Shades & Tints</button>
-                            <button class="palette-tab" data-tab="complementary">Complementary</button>
-                            <button class="palette-tab" data-tab="triadic">Triadic</button>
-                        </div>
-                        <div id="palette-content-shades_tints" class="palette-content active"></div>
-                        <div id="palette-content-complementary" class="palette-content"></div>
-                        <div id="palette-content-triadic" class="palette-content"></div>
-                    </div>
+                    <div id="palette-container" class="palette-container"></div>
                 </div>
             </div>
-
             <div id="history-container">
                 <div class="history-header">
                     <h2>History</h2>
@@ -76,28 +64,25 @@
                 <div class="controls-header">
                     <label for="imageLoader" id="upload-label" class="upload-label">
                         <span id="upload-text">Upload New Image</span>
+                        <div id="upload-loader" class="loader" style="display: none;"></div>
                     </label>
-                    <div class="zoom-panel-pro" id="zoom-panel-pro">
-                        <button id="zoom-out-btn-pro" title="Zoom Out" aria-label="Zoom Out"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
-                        <input type="range" id="zoom-slider-pro" min="10" max="3000" value="100" step="1" aria-label="Zoom slider">
-                        <input type="number" id="zoom-input-pro" class="zoom-display" value="100" readonly>
-                        <button id="zoom-in-btn-pro" title="Zoom In" aria-label="Zoom In"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
-                        <button id="fit-zoom-btn-pro" title="Fit to View" aria-label="Fit to View"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
-                        <button class="pan-mode-btn" id="pan-mode-btn" title="Toggle Pan Mode" aria-label="Toggle Pan Mode"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18.172a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3.342a2 2 0 0 0-1.172-1.83l-5.25-3.03a2 2 0 0 0-2 0l-5.25 3.03A2 2 0 0 0 4 14.83v3.342z"/><path d="M10.001 5.172a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v0a2 2 0 0 1-2 2h0a2 2 0 0 1-2-2v0z"/></svg></button>
+                    <div class="zoom-panel">
+                        <button id="zoom-out-btn" title="Zoom Out" aria-label="Zoom Out"><svg><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                        <input type="range" id="zoom-slider" min="0.1" max="30" value="1" step="0.1">
+                        <input type="number" id="zoom-input" value="100">
+                        <button id="zoom-in-btn" title="Zoom In" aria-label="Zoom In"><svg><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                        <button id="fit-zoom-btn" title="Fit to View" aria-label="Fit to View"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
                     </div>
                 </div>
                 <div class="canvas-container" id="canvas-container">
                     <div id="upload-area" class="upload-area">
-                        <p>Drag & Drop Image Here or Click</p>
+                        <p>Drag & Drop Image Here</p>
                         <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/webp">
                     </div>
-                    <canvas id="imageCanvas" tabindex="0"></canvas>
-                    <canvas class="pixel-grid-canvas"></canvas>
-                    <button class="close-image-btn" id="close-image-btn" title="Close Image" aria-label="Close Image">&times;</button>
-                    <div class="virtual-cursor"></div>
-                    <div class="navigator"><div class="navigator-view"></div></div>
-                    <div class="loader-container"><div class="loader" style="width:50px; height:50px;"></div></div>
-                    <div id="mobile-loupe"><div class="loupe-crosshair"></div></div>
+                    <canvas id="imageCanvas"></canvas>
+                    <canvas id="pixelGridCanvas"></canvas>
+                    <div id="navigator"><div id="navigator-view"></div></div>
+                    <div id="loader-container" class="loader-container" style="display:none;"><div class="loader" style="width:50px; height:50px;"></div></div>
                 </div>
             </div>
         </main>
@@ -105,350 +90,267 @@
     
     <div id="toast-container"></div>
     <footer>
-        &copy; <span id="copyright-year">2025</span> Made by Adi Deole &bull; <a href="mailto:adityadeole08@gmail.com">Contact</a>
+        &copy; 2025 Made by Adi Deole &bull; <a href="mailto:adityadeole08@gmail.com">adityadeole08@gmail.com</a>
     </footer>
 
     <script>
         const colorApp = {
-            CONSTANTS: {
-                MAX_IMAGE_DIMENSION: 2560,
-                MAGNIFIER_ZOOM: 8,
-                HISTORY_LIMIT: 20,
-                LOUPE_OFFSET_Y: 80,
-                LOUPE_TAP_DELAY: 150,
-            },
-
-            getDOMElements() {
-                const elements = {};
-                const ids = [
-                    'upload-area', 'imageLoader', 'upload-label', 'upload-text',
-                    'imageCanvas', 'canvas-container', 'loader-container', 
-                    'results-card', 'color-box', 'colorName', 'hexCode', 'rgbValue', 
-                    'history-container', 'history-list', 'history-empty-state', 'clear-history',
-                    'magnifier-canvas', 'toast-container', 'theme-toggle', 'palette-container',
-                    'mobile-loupe', 'pan-mode-btn', 'close-image-btn', 'copyright-year',
-                    'zoom-slider-pro', 'zoom-input-pro', 'zoom-in-btn-pro', 'zoom-out-btn-pro', 'fit-zoom-btn-pro'
-                ];
-                ids.forEach(id => { if (document.getElementById(id)) elements[id] = document.getElementById(id); });
-                
-                elements.pixelGridCanvas = document.querySelector('.pixel-grid-canvas');
-                elements.navigator = document.querySelector('.navigator');
-                elements.navigatorView = document.querySelector('.navigator-view');
-                elements.virtualCursor = document.querySelector('.virtual-cursor');
-                elements.magnifierContainer = document.querySelector('.magnifier-container');
-                elements.resultsContainer = document.querySelector('.results-container');
-                elements.paletteTabs = document.querySelectorAll('.palette-tab');
-                elements.paletteContents = document.querySelectorAll('.palette-content');
-
-                elements.ctx = elements.imageCanvas.getContext('2d');
-                elements.pixelGridCtx = elements.pixelGridCanvas.getContext('2d');
-                return elements;
-            },
-
-            getInitialState() {
-                return {
-                    currentImageFile: null,
-                    panzoomInstance: null,
-                    originalImage: null,
-                    colorHistory: [],
-                    isFirstPick: true,
-                    isPanning: false,
-                    isPanMode: false,
-                    lastPointerEvent: null,
-                    isTransformDirty: false,
-                    activeTouchTimeout: null,
-                    virtualCursorPos: { x: 50, y: 50 },
-                };
-            },
+            // DOM Elements
+            imageLoader: document.getElementById('imageLoader'),
+            uploadArea: document.getElementById('upload-area'),
+            uploadLabel: document.getElementById('upload-label'),
+            uploadText: document.getElementById('upload-text'),
+            uploadLoader: document.getElementById('upload-loader'),
+            canvas: document.getElementById('imageCanvas'),
+            canvasContainer: document.getElementById('canvas-container'),
+            ctx: document.getElementById('imageCanvas').getContext('2d'),
+            pixelGridCanvas: document.getElementById('pixelGridCanvas'),
+            pixelGridCtx: document.getElementById('pixelGridCanvas').getContext('2d'),
+            loaderContainer: document.getElementById('loader-container'),
+            resultsCard: document.getElementById('results-card'),
+            colorBox: document.getElementById('color-box'),
+            colorNameSpan: document.getElementById('colorName'),
+            hexCodeSpan: document.getElementById('hexCode'),
+            rgbValueSpan: document.getElementById('rgbValue'),
+            historyList: document.getElementById('history-list'),
+            historyEmptyState: document.getElementById('history-empty-state'),
+            clearHistoryBtn: document.getElementById('clear-history'),
+            magnifierCanvas: document.getElementById('magnifier-canvas'),
+            navigator: document.getElementById('navigator'),
+            navigatorView: document.getElementById('navigator-view'),
+            toastContainer: document.getElementById('toast-container'),
+            themeToggle: document.getElementById('theme-toggle'),
+            paletteContainer: document.getElementById('palette-container'),
+            zoomSlider: document.getElementById('zoom-slider'),
+            zoomInput: document.getElementById('zoom-input'),
+            zoomInBtn: document.getElementById('zoom-in-btn'),
+            zoomOutBtn: document.getElementById('zoom-out-btn'),
+            fitZoomBtn: document.getElementById('fit-zoom-btn'),
+            
+            // State
+            currentImageFile: null,
+            panzoomInstance: null,
+            originalImage: null,
+            colorHistory: [],
+            isPanning: false,
+            lastPointerEvent: null,
+            MAX_IMAGE_DIMENSION: 1920,
+            MAGNIFIER_ZOOM: 8,
+            minZoom: 0.1,
 
             init() {
-                this.dom = this.getDOMElements();
-                this.state = this.getInitialState();
-                
-                this.setupEventListeners();
-                this.dom.copyrightYear.textContent = new Date().getFullYear();
-                if (localStorage.getItem('theme') === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches) {
-                    this.dom.themeToggle.checked = true;
-                    document.body.classList.add('dark-mode');
-                }
-            },
-
-            setupEventListeners() {
-                this.dom.imageLoader.addEventListener('change', (e) => this.handleFiles(e.target.files));
+                this.imageLoader.addEventListener('change', (e) => this.handleFiles(e.target.files));
                 this.setupDragAndDrop();
                 this.setupZoomControls();
-                this.dom.panModeBtn.addEventListener('click', () => this.togglePanMode());
-                this.dom.closeImageBtn.addEventListener('click', () => this.resetState());
-                this.dom.clearHistory.addEventListener('click', () => this.clearHistory());
-                this.dom.themeToggle.addEventListener('change', () => this.toggleTheme());
-                
-                window.addEventListener('keydown', (e) => this.handleGlobalKeyDown(e));
-                window.addEventListener('keyup', (e) => this.handleGlobalKeyUp(e));
-
-                const container = this.dom.canvasContainer;
-                container.addEventListener('pointerdown', (e) => { this.state.lastPointerEvent = e; });
-                container.addEventListener('pointermove', this.debounce((e) => { this.state.lastPointerEvent = e; this.updateMagnifier(e); }, 10));
-                container.addEventListener('click', (e) => this.handleCanvasClick(e));
-                container.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
-                container.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
-                container.addEventListener('touchend', (e) => this.handleTouchEnd(e));
-                
-                this.dom.imageCanvas.addEventListener('focus', () => { if (this.state.originalImage) this.dom.virtualCursor.style.display = 'block'; });
-                this.dom.imageCanvas.addEventListener('blur', () => this.dom.virtualCursor.style.display = 'none');
-                this.dom.imageCanvas.addEventListener('keydown', (e) => this.handleCanvasKeyboard(e));
-                
-                this.setupPaletteTabs();
+                this.clearHistoryBtn.addEventListener('click', () => this.clearHistory());
+                this.themeToggle.addEventListener('change', () => this.toggleTheme());
+                window.addEventListener('keydown', (e) => this.handleKeyDown(e));
+                window.addEventListener('keyup', (e) => this.handleKeyUp(e));
+                const pointerMoveHandler = this.debounce((e) => { this.lastPointerEvent = e; this.updateMagnifier(e); }, 10);
+                this.canvasContainer.addEventListener('pointerdown', (e) => { this.lastPointerEvent = e; });
+                this.canvasContainer.addEventListener('pointermove', pointerMoveHandler);
+                this.canvasContainer.addEventListener('click', (e) => this.handleCanvasClick(e));
+                if (localStorage.getItem('theme') === 'dark') { this.themeToggle.checked = true; document.body.classList.add('dark-mode'); }
             },
 
-            resetState() {
-                if (this.state.panzoomInstance) this.state.panzoomInstance.destroy();
-                
-                Object.assign(this.state, this.getInitialState());
+            // --- Event Handlers & Setup ---
+            debounce(func, delay) { let timeout; return function(...args) { const context = this; clearTimeout(timeout); timeout = setTimeout(() => func.apply(context, args), delay); }; },
+            handleKeyDown(e) { if (e.code === 'Space' && this.originalImage) { e.preventDefault(); if (this.isPanning) return; this.isPanning = true; this.canvas.style.cursor = 'grab'; this.panzoomInstance.setOptions({ disablePan: false }); } },
+            handleKeyUp(e) { if (e.code === 'Space' && this.originalImage) { this.isPanning = false; this.canvas.style.cursor = 'crosshair'; this.panzoomInstance.setOptions({ disablePan: true }); } },
+            setupDragAndDrop() { const preventDefaults = e => { e.preventDefault(); e.stopPropagation(); }; ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => this.uploadArea.addEventListener(eventName, preventDefaults, false)); ['dragenter', 'dragover'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.add('dragover'), false)); ['dragleave', 'drop'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.remove('dragover'), false)); this.uploadArea.addEventListener('drop', (e) => this.handleFiles(e.dataTransfer.files), false); },
 
-                this.dom.uploadArea.style.display = 'flex';
-                this.dom.imageCanvas.style.display = 'none';
-                this.dom.navigator.style.display = 'none';
-                this.dom.closeImageBtn.style.display = 'none';
-                this.dom.canvasContainer.classList.remove('image-loaded');
-                this.dom.magnifierContainer.style.display = 'none';
-                this.dom.resultsContainer.style.display = 'none';
-                this.dom.resultsCard.classList.remove('visible');
-                this.dom.uploadLabel.removeAttribute('disabled');
-                this.dom.pixelGridCtx.clearRect(0, 0, this.dom.pixelGridCanvas.width, this.dom.pixelGridCanvas.height);
-                this.togglePanMode(false); // Ensure pan mode is off
+            setupZoomControls() {
+                this.zoomInBtn.addEventListener('click', () => this.panzoomInstance?.zoomIn({ animate: true }));
+                this.zoomOutBtn.addEventListener('click', () => this.panzoomInstance?.zoomOut({ animate: true }));
+                this.fitZoomBtn.addEventListener('click', () => this.fitImageToView(true));
+
+                this.zoomSlider.addEventListener('input', (e) => {
+                    const scale = parseFloat(e.target.value);
+                    this.panzoomInstance.zoom(scale, { animate: false });
+                });
+
+                this.zoomInput.addEventListener('change', (e) => {
+                    const percentage = parseFloat(e.target.value);
+                    if (!isNaN(percentage)) {
+                        this.panzoomInstance.zoom(percentage / 100, { animate: true });
+                    }
+                });
             },
-            
+
+            // --- Image Loading and Processing ---
             handleFiles(files) {
                 const file = files[0];
-                if (!file || !file.type.startsWith('image/')) {
-                    this.showToast('Please select a valid image file.', true);
-                    return;
-                }
-
-                this.resetState();
-                this.dom.loaderContainer.style.display = 'flex';
-                this.dom.uploadLabel.setAttribute('disabled', true);
+                if (!file || !file.type.startsWith('image/')) return;
+                this.uploadLabel.setAttribute('disabled', true);
+                this.uploadText.textContent = 'Processing...';
+                this.uploadLoader.style.display = 'block';
 
                 this.resizeImage(file, (resizedBlob, resizedDataUrl) => {
-                    if (!resizedBlob || !resizedDataUrl) {
-                        this.showToast('Error: Could not process image.', true);
-                        this.dom.loaderContainer.style.display = 'none';
-                        this.dom.uploadLabel.removeAttribute('disabled');
-                        return;
-                    }
-                    this.state.currentImageFile = resizedBlob;
-                    this.state.originalImage = new Image();
-                    this.state.originalImage.onload = () => {
-                        this.dom.canvas.width = this.state.originalImage.width;
-                        this.dom.canvas.height = this.state.originalImage.height;
-                        this.dom.pixelGridCanvas.width = this.dom.canvasContainer.clientWidth;
-                        this.dom.pixelGridCanvas.height = this.dom.canvasContainer.clientHeight;
-                        this.dom.ctx.drawImage(this.state.originalImage, 0, 0);
+                    if (!resizedBlob || !resizedDataUrl) { this.showToast('Error: Could not process image.', true); this.resetUI(); return; }
+                    this.currentImageFile = resizedBlob;
+                    this.originalImage = new Image();
+                    this.originalImage.onerror = () => { this.showToast('Error: Could not load image file.', true); this.resetUI(); };
+                    this.originalImage.onload = () => {
+                        this.canvas.width = this.originalImage.width;
+                        this.canvas.height = this.originalImage.height;
+                        this.pixelGridCanvas.width = this.canvasContainer.clientWidth;
+                        this.pixelGridCanvas.height = this.canvasContainer.clientHeight;
+                        this.ctx.drawImage(this.originalImage, 0, 0);
+                        this.uploadArea.style.display = 'none';
+                        this.canvas.style.display = 'block';
                         
-                        this.dom.uploadArea.style.display = 'none';
-                        this.dom.canvas.style.display = 'block';
-                        this.dom.closeImageBtn.style.display = 'flex';
-                        this.dom.canvasContainer.classList.add('image-loaded');
+                        if (this.panzoomInstance) this.panzoomInstance.destroy();
+                        this.panzoomInstance = Panzoom(this.canvas, {
+                            maxScale: 30,
+                            canvas: true,
+                            disablePan: true,
+                            contain: 'outside' // Keep image within bounds
+                        });
+                        
+                        this.canvasContainer.addEventListener('wheel', (e) => {
+                            e.preventDefault();
+                            this.panzoomInstance.zoomWithWheel(e, { animate: false });
+                        });
 
-                        this.setupPanzoom();
-                        this.fitImageToView(false);
-                        this.setupNavigator();
+                        this.canvas.addEventListener('panzoomzoom', (e) => this.onTransformChange(e));
+                        this.canvas.addEventListener('panzoompan', () => this.onTransformChange());
                         
-                        this.dom.uploadLabel.removeAttribute('disabled');
-                        this.dom.loaderContainer.style.display = 'none';
+                        this.fitImageToView(false); // Initial fit
+                        this.setupNavigator();
+                        this.resetUploadButton();
+                        this.onTransformChange();
                     };
-                    this.state.originalImage.onerror = () => {
-                        this.showToast('Error: Could not load image file.', true);
-                        this.dom.loaderContainer.style.display = 'none';
-                        this.dom.uploadLabel.removeAttribute('disabled');
-                    };
-                    this.state.originalImage.src = resizedDataUrl;
+                    this.originalImage.src = resizedDataUrl;
                 });
             },
 
             resizeImage(file, callback) {
                 const reader = new FileReader();
+                reader.onerror = () => callback(null, null);
                 reader.onload = (e) => {
                     const img = new Image();
+                    img.onerror = () => callback(null, null);
                     img.onload = () => {
                         let { width, height } = img;
-                        if (width > this.CONSTANTS.MAX_IMAGE_DIMENSION || height > this.CONSTANTS.MAX_IMAGE_DIMENSION) {
-                            const ratio = width / height;
-                            if (ratio > 1) {
-                                width = this.CONSTANTS.MAX_IMAGE_DIMENSION;
-                                height = width / ratio;
-                            } else {
-                                height = this.CONSTANTS.MAX_IMAGE_DIMENSION;
-                                width = height * ratio;
-                            }
-                        }
+                        const ratio = width / height;
+                        if (width > this.MAX_IMAGE_DIMENSION) { width = this.MAX_IMAGE_DIMENSION; height = width / ratio; }
+                        if (height > this.MAX_IMAGE_DIMENSION) { height = this.MAX_IMAGE_DIMENSION; width = height * ratio; }
                         const canvas = document.createElement('canvas');
                         canvas.width = width;
                         canvas.height = height;
-                        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
-                        canvas.toBlob(blob => {
-                            const dataUrl = URL.createObjectURL(blob);
-                            callback(blob, dataUrl);
-                        }, file.type, 0.9);
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        const dataUrl = canvas.toDataURL(file.type);
+                        canvas.toBlob(blob => callback(blob, dataUrl), file.type, 0.9);
                     };
                     img.src = e.target.result;
                 };
                 reader.readAsDataURL(file);
             },
             
-            // ... Other functions (debounce, panzoom setup, etc.)
-            
-            debounce(func, delay) { let timeout; return function(...args) { const context = this; clearTimeout(timeout); timeout = setTimeout(() => func.apply(context, args), delay); }; },
-            
-            setupPanzoom() {
-                this.state.panzoomInstance = Panzoom(this.dom.imageCanvas, { maxScale: 30, canvas: true, disablePan: !this.state.isPanMode, contain: 'outside' });
-                this.dom.canvasContainer.addEventListener('wheel', (e) => { e.preventDefault(); this.state.panzoomInstance.zoomWithWheel(e, { animate: false }); });
-                this.dom.imageCanvas.addEventListener('panzoomzoom', () => this.onTransformChange());
-                this.dom.imageCanvas.addEventListener('panzoompan', () => this.onTransformChange());
-            },
-
-            setupZoomControls() {
-                this.dom.zoomInBtnPro.addEventListener('click', () => this.state.panzoomInstance?.zoomIn({ animate: true }));
-                this.dom.zoomOutBtnPro.addEventListener('click', () => this.state.panzoomInstance?.zoomOut({ animate: true }));
-                this.dom.fitZoomBtnPro.addEventListener('click', () => this.fitImageToView(true));
-                this.dom.zoomSliderPro.addEventListener('input', (e) => {
-                    const percentage = parseFloat(e.target.value);
-                    this.state.panzoomInstance.zoom(percentage / 100, { animate: false });
-                });
-            },
-            
-            onTransformChange() {
-                if (this.state.isTransformDirty) return;
-                this.state.isTransformDirty = true;
-                requestAnimationFrame(() => {
-                    if (!this.state.panzoomInstance) {
-                        this.state.isTransformDirty = false;
-                        return;
-                    }
-                    this.updateNavigator();
-                    this.drawPixelGrid();
-                    if (this.state.lastPointerEvent) this.updateMagnifier(this.state.lastPointerEvent);
-                    
-                    const scale = this.state.panzoomInstance.getScale();
-                    const percentage = Math.round(scale * 100);
-                    
-                    this.dom.zoomSliderPro.value = percentage;
-                    this.dom.zoomInputPro.value = percentage;
-                    
-                    this.state.isTransformDirty = false;
-                });
-            },
-
             fitImageToView(animate = true) {
-                if (!this.state.panzoomInstance) return;
-                const containerRect = this.dom.canvasContainer.getBoundingClientRect();
-                const imgWidth = this.state.originalImage.width;
-                const imgHeight = this.state.originalImage.height;
-                const newScale = Math.min(containerRect.width / imgWidth, containerRect.height / imgHeight);
-                this.dom.zoomSliderPro.min = Math.floor(newScale * 100);
-                this.state.panzoomInstance.zoom(newScale, { animate });
-                this.state.panzoomInstance.pan((containerRect.width - imgWidth * newScale) / 2, (containerRect.height - imgHeight * newScale) / 2, { animate });
-            },
+                if (!this.panzoomInstance || !this.originalImage) return;
+                const containerRect = this.canvasContainer.getBoundingClientRect();
+                const imgWidth = this.originalImage.width;
+                const imgHeight = this.originalImage.height;
 
-            togglePanMode(forceState = null) {
-                this.state.isPanMode = forceState !== null ? forceState : !this.state.isPanMode;
-                this.state.panzoomInstance?.setOptions({ disablePan: !this.state.isPanMode });
-                this.dom.panModeBtn.classList.toggle('active', this.state.isPanMode);
-                this.dom.canvas.style.cursor = this.state.isPanMode ? 'grab' : 'crosshair';
-            },
-
-            // --- Main Interaction Logic ---
-            handleCanvasClick(pointer) {
-                if (!this.state.currentImageFile || !this.state.panzoomInstance || this.state.isPanning || this.state.isPanMode || this.state.activeTouchTimeout) return;
+                const scaleX = containerRect.width / imgWidth;
+                const scaleY = containerRect.height / imgHeight;
+                const newScale = Math.min(scaleX, scaleY);
                 
-                const rect = this.dom.canvasContainer.getBoundingClientRect();
-                const pan = this.state.panzoomInstance.getPan();
-                const scale = this.state.panzoomInstance.getScale();
+                this.minZoom = newScale;
+                this.zoomSlider.min = newScale;
+                
+                this.panzoomInstance.zoom(newScale, { animate });
+                this.panzoomInstance.pan(
+                    (containerRect.width - imgWidth * newScale) / 2,
+                    (containerRect.height - imgHeight * newScale) / 2,
+                    { animate }
+                );
+            },
+
+            onTransformChange(e) {
+                this.updateNavigator();
+                this.drawPixelGrid();
+                if (this.lastPointerEvent) this.updateMagnifier(this.lastPointerEvent);
+                const scale = this.panzoomInstance.getScale();
+                this.zoomSlider.value = scale;
+                this.zoomInput.value = Math.round(scale * 100);
+            },
+
+            handleCanvasClick(e) {
+                const pointer = e.touches ? e.touches[0] : e;
+                if (!this.currentImageFile || !this.panzoomInstance || this.isPanning) return;
+                const rect = this.canvasContainer.getBoundingClientRect();
+                const pan = this.panzoomInstance.getPan();
+                const scale = this.panzoomInstance.getScale();
                 const x = (pointer.clientX - rect.left - pan.x) / scale;
                 const y = (pointer.clientY - rect.top - pan.y) / scale;
-                
-                if (x < 0 || y < 0 || x > this.state.originalImage.width || y > this.state.originalImage.height) return;
+                if (x < 0 || y < 0 || x > this.originalImage.width || y > this.originalImage.height) return;
 
-                this.getColorAt(Math.round(x), Math.round(y));
-            },
-            
-            getColorAt(x, y) {
-                this.dom.loaderContainer.style.display = 'flex';
+                this.loaderContainer.style.display = 'flex';
                 const formData = new FormData();
-                formData.append('image', this.state.currentImageFile);
-                formData.append('x', x);
-                formData.append('y', y);
-                
+                formData.append('image', this.currentImageFile);
+                formData.append('x', Math.round(x));
+                formData.append('y', Math.round(y));
                 fetch('/api/detect', { method: 'POST', body: formData })
                     .then(response => response.ok ? response.json() : response.json().then(err => Promise.reject(err)))
-                    .then(data => {
-                        this.dom.loaderContainer.style.display = 'none';
-                        this.displayResults(data);
-                        this.addToHistory(data);
-                    })
-                    .catch(error => {
-                        this.dom.loaderContainer.style.display = 'none';
-                        this.showToast(error.detail || 'Could not detect color.', true);
-                    });
+                    .then(data => { this.loaderContainer.style.display = 'none'; this.displayResults(data); this.addToHistory(data); })
+                    .catch(error => { this.loaderContainer.style.display = 'none'; this.showToast(error.detail || 'Could not detect color.', true); });
             },
 
-            displayResults(data) {
-                if (this.state.isFirstPick) {
-                    this.dom.magnifierContainer.style.display = 'block';
-                    this.dom.resultsContainer.style.display = 'block';
-                    this.state.isFirstPick = false;
-                }
-                this.dom.resultsCard.classList.add('visible');
-                this.dom.colorName.textContent = data.color_name;
-                this.dom.hexCode.textContent = data.hex_code;
-                this.dom.rgbValue.textContent = data.rgb;
-                this.dom.colorBox.style.backgroundColor = data.detected_rgb;
+            // --- UI Update Functions ---
+            updateMagnifier(e) {
+                if (!this.originalImage || !this.panzoomInstance) return;
+                const pointer = e.touches ? e.touches[0] : e;
+                const rect = this.canvasContainer.getBoundingClientRect();
+                const pan = this.panzoomInstance.getPan();
+                const scale = this.panzoomInstance.getScale();
+                const imgX = (pointer.clientX - rect.left - pan.x) / scale;
+                const imgY = (pointer.clientY - rect.top - pan.y) / scale;
+
+                this.magnifierCanvas.style.backgroundImage = `url(${this.originalImage.src})`;
+                this.magnifierCanvas.style.backgroundSize = `${this.originalImage.width * this.MAGNIFIER_ZOOM}px ${this.originalImage.height * this.MAGNIFIER_ZOOM}px`;
+                const bgPosX = -(imgX * this.MAGNIFIER_ZOOM) + (this.magnifierCanvas.offsetWidth / 2);
+                const bgPosY = -(imgY * this.MAGNIFIER_ZOOM) + (this.magnifierCanvas.offsetHeight / 2);
+                this.magnifierCanvas.style.backgroundPosition = `${bgPosX}px ${bgPosY}px`;
+            },
+            
+            drawPixelGrid() {
+                if (!this.panzoomInstance) return;
+                const pan = this.panzoomInstance.getPan();
+                const scale = this.panzoomInstance.getScale();
+                const ctx = this.pixelGridCtx;
+                const canvasWidth = this.pixelGridCanvas.width;
+                const canvasHeight = this.pixelGridCanvas.height;
                 
-                // Fetch and render advanced palettes
-                const [r, g, b] = data.rgb.split(',').map(Number);
-                fetch(`/api/palette/advanced?r=${r}&g=${g}&b=${b}`)
-                    .then(res => res.json())
-                    .then(paletteData => this.renderPalettes(paletteData));
+                ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+                if (scale < 12) return;
+
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = document.body.classList.contains('dark-mode') ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)';
+                const left = pan.x % scale;
+                const top = pan.y % scale;
+
+                for (let x = left; x < canvasWidth; x += scale) { ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, canvasHeight); ctx.stroke(); }
+                for (let y = top; y < canvasHeight; y += scale) { ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(canvasWidth, y + 0.5); ctx.stroke(); }
             },
-            
-            // ... History, Palette, Touch, Keyboard, and other UI functions
-            
-            renderHistory() { /* ... (As planned) ... */ },
-            renderPalettes(paletteData) { /* ... (Renders to tabs) ... */ },
-            handleTouchStart(e) { /* ... (With setTimeout logic) ... */ },
-            handleCanvasKeyboard(e) { /* ... (With virtual cursor logic) ... */ },
 
-            // Final placeholder for all functions
+            // Other functions are assumed to be here...
+            resetUI: function() { this.uploadArea.style.display = 'flex'; this.canvas.style.display = 'none'; this.navigator.style.display = 'none'; this.resetUploadButton(); this.pixelGridCtx.clearRect(0,0,this.pixelGridCanvas.width, this.pixelGridCanvas.height); },
+            resetUploadButton: function() { this.uploadLabel.removeAttribute('disabled'); this.uploadText.textContent = 'Upload New Image'; this.uploadLoader.style.display = 'none'; },
+            setupNavigator: function() { this.navigator.style.display = 'block'; this.navigator.style.backgroundImage = `url(${this.originalImage.src})`; this.updateNavigator(); },
+            updateNavigator: function() { if (!this.originalImage || !this.panzoomInstance) return; const pan = this.panzoomInstance.getPan(); const scale = this.panzoomInstance.getScale(); const containerRect = this.canvasContainer.getBoundingClientRect(); const navRect = this.navigator.getBoundingClientRect(); if (navRect.width === 0) return; const viewWidth = containerRect.width / scale; const viewHeight = containerRect.height / scale; const navScale = navRect.width / this.originalImage.width; this.navigatorView.style.width = `${viewWidth * navScale}px`; this.navigatorView.style.height = `${viewHeight * navScale}px`; this.navigatorView.style.left = `${-pan.x * navScale}px`; this.navigatorView.style.top = `${-pan.y * navScale}px`; },
+            displayResults: function(data) { this.colorNameSpan.textContent = data.color_name; this.hexCodeSpan.textContent = data.hex_code; this.rgbValueSpan.textContent = data.rgb; this.colorBox.style.backgroundColor = data.detected_rgb; this.resultsCard.classList.add('visible'); const [r, g, b] = data.rgb.split(',').map(Number); fetch(`/api/palette?r=${r}&g=${g}&b=${b}`).then(res => res.json()).then(paletteData => { this.paletteContainer.innerHTML = '<strong>Shades & Tints:</strong>'; const paletteDiv = document.createElement('div'); paletteDiv.className = 'palette'; const fullPalette = [...paletteData.tints.slice(0, 4), data.detected_rgb, ...paletteData.shades.slice(1)]; fullPalette.forEach(color => { const swatch = document.createElement('div'); swatch.className = 'palette-swatch'; swatch.style.backgroundColor = color; paletteDiv.appendChild(swatch); }); this.paletteContainer.appendChild(paletteDiv); }); },
+            addToHistory: function(data) { const isDuplicate = this.colorHistory.some(c => c.hex_code === data.hex_code); if (!isDuplicate) { this.colorHistory.unshift(data); if (this.colorHistory.length > 20) this.colorHistory.pop(); this.renderHistory(); } },
+            renderHistory: function() { if (this.colorHistory.length === 0) { this.historyEmptyState.style.display = 'flex'; this.historyList.innerHTML = ''; } else { this.historyEmptyState.style.display = 'none'; this.historyList.innerHTML = ''; this.colorHistory.forEach(color => { const li = document.createElement('li'); li.innerHTML = `<div class="history-swatch" style="background-color: ${color.detected_rgb};"></div><div class="history-info"><strong>${color.color_name}</strong><br><span>${color.hex_code}</span></div>`; li.onclick = () => this.displayResults(color); this.historyList.appendChild(li); }); } },
+            clearHistory: function() { this.colorHistory = []; this.renderHistory(); this.showToast('History cleared.'); },
+            showToast: function(message, isError = false) { const toast = document.createElement('div'); toast.className = 'toast'; if (isError) toast.classList.add('error'); toast.textContent = message; this.toastContainer.appendChild(toast); setTimeout(() => toast.classList.add('show'), 10); setTimeout(() => { toast.classList.remove('show'); toast.addEventListener('transitionend', () => toast.remove()); }, 3000); },
+            copyToClipboard: function(elementSelector, button) { const text = document.querySelector(elementSelector).textContent; navigator.clipboard.writeText(text).then(() => { const originalText = button.innerHTML; button.disabled = true; button.innerHTML = 'Copied!'; setTimeout(() => { button.innerHTML = originalText; button.disabled = false; }, 2000); }, () => this.showToast('Failed to copy text.', true)); },
+            toggleTheme: function() { if (this.themeToggle.checked) { document.body.classList.add('dark-mode'); localStorage.setItem('theme', 'dark'); } else { document.body.classList.remove('dark-mode'); localStorage.setItem('theme', 'light'); } }
         };
-
-        // This is a simplified version. The complete, fully implemented JS would be very long.
-        // The above structure and snippets provide the blueprint for the final implementation.
-        // For a full copy-paste solution, each placeholder function would need to be fully written out.
-        // Example of a fully written out function:
-        colorApp.toggleTheme = function() {
-            if (this.dom.themeToggle.checked) {
-                document.body.classList.add('dark-mode');
-                localStorage.setItem('theme', 'dark');
-            } else {
-                document.body.classList.remove('dark-mode');
-                localStorage.setItem('theme', 'light');
-            }
-            if(this.state.originalImage) this.drawPixelGrid();
-        };
-
-        // It is assumed all other functions are similarly filled out based on the detailed plans.
-        // To make this a single runnable block, all function bodies must be complete.
-        // Due to the complexity, providing every single line of the final JS object in this format is challenging,
-        // but the provided code gives the complete, corrected structure and logic for the most critical parts.
         
-        // This is a placeholder for a complete, runnable object
-        // The user would need to combine the provided logic into this single object
-        const completeColorApp = { /* ... combine everything ... */ };
-        // completeColorApp.init();
-
-        // For demonstration, a simplified init call:
-        // colorApp.init(); // This would throw errors as functions are not fully defined above.
-        
+        colorApp.init();
     </script>
 </body>
 </html>

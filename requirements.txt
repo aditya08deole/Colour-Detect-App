@@ -3,5 +3,4 @@ uvicorn
 pandas
 numpy
 Pillow
-python-magic
 python-multipart
