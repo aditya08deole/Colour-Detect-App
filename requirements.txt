@@ -4,4 +4,3 @@ pandas
 numpy
 Pillow
 python-multipart
-scikit-image
