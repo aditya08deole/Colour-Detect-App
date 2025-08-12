@@ -68,10 +68,10 @@
                     </label>
                     <div class="zoom-panel">
                         <button id="zoom-out-btn" title="Zoom Out" aria-label="Zoom Out"><svg><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
-                        <input type="range" id="zoom-slider" min="1" max="30" value="1" step="0.1">
+                        <input type="range" id="zoom-slider" min="0.1" max="30" value="1" step="0.1">
                         <input type="number" id="zoom-input" value="100">
                         <button id="zoom-in-btn" title="Zoom In" aria-label="Zoom In"><svg><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
-                        <button id="reset-zoom-btn" title="Reset" aria-label="Reset Zoom"><svg><path d="M2.5 2v6h6M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.5 12.5"/><path d="M2 12.5a10 10 0 0 0 18.5-1"/></svg></button>
+                        <button id="fit-zoom-btn" title="Fit to View" aria-label="Fit to View"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button>
                     </div>
                 </div>
                 <div class="canvas-container" id="canvas-container">
@@ -125,7 +125,7 @@
             zoomInput: document.getElementById('zoom-input'),
             zoomInBtn: document.getElementById('zoom-in-btn'),
             zoomOutBtn: document.getElementById('zoom-out-btn'),
-            resetZoomBtn: document.getElementById('reset-zoom-btn'),
+            fitZoomBtn: document.getElementById('fit-zoom-btn'),
             
             // State
             currentImageFile: null,
@@ -136,35 +136,21 @@
             lastPointerEvent: null,
             MAX_IMAGE_DIMENSION: 1920,
             MAGNIFIER_ZOOM: 8,
+            minZoom: 0.1,
 
             init() {
-                // File handling
                 this.imageLoader.addEventListener('change', (e) => this.handleFiles(e.target.files));
                 this.setupDragAndDrop();
-                
-                // Controls
                 this.setupZoomControls();
                 this.clearHistoryBtn.addEventListener('click', () => this.clearHistory());
                 this.themeToggle.addEventListener('change', () => this.toggleTheme());
-
-                // Keyboard shortcuts
                 window.addEventListener('keydown', (e) => this.handleKeyDown(e));
                 window.addEventListener('keyup', (e) => this.handleKeyUp(e));
-
-                // Universal pointer events for mouse and touch
-                const pointerMoveHandler = this.debounce((e) => {
-                    this.lastPointerEvent = e;
-                    this.updateMagnifier(e);
-                }, 10);
+                const pointerMoveHandler = this.debounce((e) => { this.lastPointerEvent = e; this.updateMagnifier(e); }, 10);
                 this.canvasContainer.addEventListener('pointerdown', (e) => { this.lastPointerEvent = e; });
                 this.canvasContainer.addEventListener('pointermove', pointerMoveHandler);
                 this.canvasContainer.addEventListener('click', (e) => this.handleCanvasClick(e));
-
-                // Check for saved theme
-                if (localStorage.getItem('theme') === 'dark') {
-                    this.themeToggle.checked = true;
-                    document.body.classList.add('dark-mode');
-                }
+                if (localStorage.getItem('theme') === 'dark') { this.themeToggle.checked = true; document.body.classList.add('dark-mode'); }
             },
 
             // --- Event Handlers & Setup ---
@@ -176,7 +162,7 @@
             setupZoomControls() {
                 this.zoomInBtn.addEventListener('click', () => this.panzoomInstance?.zoomIn({ animate: true }));
                 this.zoomOutBtn.addEventListener('click', () => this.panzoomInstance?.zoomOut({ animate: true }));
-                this.resetZoomBtn.addEventListener('click', () => this.panzoomInstance?.reset({ animate: true }));
+                this.fitZoomBtn.addEventListener('click', () => this.fitImageToView(true));
 
                 this.zoomSlider.addEventListener('input', (e) => {
                     const scale = parseFloat(e.target.value);
@@ -214,7 +200,12 @@
                         this.canvas.style.display = 'block';
                         
                         if (this.panzoomInstance) this.panzoomInstance.destroy();
-                        this.panzoomInstance = Panzoom(this.canvas, { maxScale: 30, canvas: true, disablePan: true });
+                        this.panzoomInstance = Panzoom(this.canvas, {
+                            maxScale: 30,
+                            canvas: true,
+                            disablePan: true,
+                            contain: 'outside' // Keep image within bounds
+                        });
                         
                         this.canvasContainer.addEventListener('wheel', (e) => {
                             e.preventDefault();
@@ -224,6 +215,7 @@
                         this.canvas.addEventListener('panzoomzoom', (e) => this.onTransformChange(e));
                         this.canvas.addEventListener('panzoompan', () => this.onTransformChange());
                         
+                        this.fitImageToView(false); // Initial fit
                         this.setupNavigator();
                         this.resetUploadButton();
                         this.onTransformChange();
@@ -255,12 +247,32 @@
                 };
                 reader.readAsDataURL(file);
             },
+            
+            fitImageToView(animate = true) {
+                if (!this.panzoomInstance || !this.originalImage) return;
+                const containerRect = this.canvasContainer.getBoundingClientRect();
+                const imgWidth = this.originalImage.width;
+                const imgHeight = this.originalImage.height;
+
+                const scaleX = containerRect.width / imgWidth;
+                const scaleY = containerRect.height / imgHeight;
+                const newScale = Math.min(scaleX, scaleY);
+                
+                this.minZoom = newScale;
+                this.zoomSlider.min = newScale;
+                
+                this.panzoomInstance.zoom(newScale, { animate });
+                this.panzoomInstance.pan(
+                    (containerRect.width - imgWidth * newScale) / 2,
+                    (containerRect.height - imgHeight * newScale) / 2,
+                    { animate }
+                );
+            },
 
             onTransformChange(e) {
                 this.updateNavigator();
                 this.drawPixelGrid();
                 if (this.lastPointerEvent) this.updateMagnifier(this.lastPointerEvent);
-                
                 const scale = this.panzoomInstance.getScale();
                 this.zoomSlider.value = scale;
                 this.zoomInput.value = Math.round(scale * 100);
@@ -269,7 +281,7 @@
             handleCanvasClick(e) {
                 const pointer = e.touches ? e.touches[0] : e;
                 if (!this.currentImageFile || !this.panzoomInstance || this.isPanning) return;
-                const rect = this.canvasContainer.getBoundingClientRect(); // Use container for stable reference
+                const rect = this.canvasContainer.getBoundingClientRect();
                 const pan = this.panzoomInstance.getPan();
                 const scale = this.panzoomInstance.getScale();
                 const x = (pointer.clientX - rect.left - pan.x) / scale;
@@ -291,20 +303,14 @@
             updateMagnifier(e) {
                 if (!this.originalImage || !this.panzoomInstance) return;
                 const pointer = e.touches ? e.touches[0] : e;
-                
-                // BUG FIX: Use the stable container rect for reference, not the moving canvas rect.
                 const rect = this.canvasContainer.getBoundingClientRect();
                 const pan = this.panzoomInstance.getPan();
                 const scale = this.panzoomInstance.getScale();
-
-                // This correctly finds the pixel on the original image data.
                 const imgX = (pointer.clientX - rect.left - pan.x) / scale;
                 const imgY = (pointer.clientY - rect.top - pan.y) / scale;
 
                 this.magnifierCanvas.style.backgroundImage = `url(${this.originalImage.src})`;
                 this.magnifierCanvas.style.backgroundSize = `${this.originalImage.width * this.MAGNIFIER_ZOOM}px ${this.originalImage.height * this.MAGNIFIER_ZOOM}px`;
-                
-                // Center the background image on the cursor's position
                 const bgPosX = -(imgX * this.MAGNIFIER_ZOOM) + (this.magnifierCanvas.offsetWidth / 2);
                 const bgPosY = -(imgY * this.MAGNIFIER_ZOOM) + (this.magnifierCanvas.offsetHeight / 2);
                 this.magnifierCanvas.style.backgroundPosition = `${bgPosX}px ${bgPosY}px`;

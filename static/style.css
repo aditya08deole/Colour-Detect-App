@@ -49,7 +49,7 @@ canvas { cursor: crosshair; display: none; max-width: none; }
 .upload-label:hover { filter: brightness(1.1); }
 .upload-label[disabled] { background-color: var(--secondary-color); color: var(--font-color); opacity: 0.7; cursor: not-allowed; }
 
-/* --- NEW: Zoom Panel --- */
+/* --- Zoom Panel --- */
 .zoom-panel { display: flex; align-items: center; gap: 10px; }
 .zoom-panel button { background: var(--secondary-color); color: var(--font-color); border: 1px solid var(--border-color); border-radius: 6px; width: 36px; height: 36px; cursor: pointer; transition: all 0.2s; display:flex; justify-content: center; align-items: center; }
 .zoom-panel button:hover { background-color: var(--border-color); }
@@ -58,13 +58,17 @@ canvas { cursor: crosshair; display: none; max-width: none; }
 #zoom-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 15px; height: 15px; background: var(--accent-color); cursor: pointer; border-radius: 50%; }
 #zoom-slider::-moz-range-thumb { width: 15px; height: 15px; background: var(--accent-color); cursor: pointer; border-radius: 50%; border: none; }
 #zoom-input { width: 60px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--primary-color); color: var(--font-color); text-align: center; font-size: 0.9rem; }
+/* Hide number input arrows */
+#zoom-input::-webkit-outer-spin-button, #zoom-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+#zoom-input[type=number] { -moz-appearance: textfield; }
+
 
 /* --- Sidebar Content --- */
 .sidebar h1, .sidebar h2 { margin: 0; font-weight: 600; }
 .sidebar .logo { font-weight: 700; font-size: 1.8rem; }
 .sidebar .logo span { color: var(--accent-color); }
 
-/* --- NEW: Stationary Magnifier --- */
+/* --- Stationary Magnifier --- */
 #magnifier-container { padding-top: 1rem; border-top: 1px solid var(--border-color); }
 #magnifier-canvas { width: 100%; height: 150px; background-color: var(--secondary-color); border: 1px solid var(--border-color); border-radius: 8px; position: relative; }
 #magnifier-crosshair { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
@@ -128,5 +132,5 @@ footer a:hover { text-decoration: underline; }
     #navigator { display: none !important; }
     .zoom-panel button { width: 44px; height: 44px; }
     #history-list { max-height: 200px; }
-    #magnifier-container { display: none; } /* Hide stationary magnifier on mobile */
+    #magnifier-container { display: none; }
 }
