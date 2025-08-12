@@ -31,10 +31,10 @@ body {
 
 /* --- Main Layout --- */
 .app-container { display: grid; grid-template-columns: 320px 1fr; width: 100%; max-width: 1800px; min-height: 100vh; }
-.sidebar { background-color: var(--primary-color); border-right: 1px solid var(--border-color); padding: 2rem; display: flex; flex-direction: column; gap: 2rem; transition: background-color 0.3s, border-color 0.3s; }
-.main-content { padding: 2rem; display: flex; flex-direction: column; gap: 2rem; }
-.canvas-wrapper { background: var(--primary-color); border-radius: 12px; border: 1px solid var(--border-color); padding: 1rem; display: flex; flex-direction: column; height: 80vh; box-shadow: 0 4px 12px var(--shadow-color); transition: background-color 0.3s, border-color 0.3s; }
-.canvas-container { flex-grow: 1; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; background-color: var(--secondary-color); border-radius: 8px; touch-action: none; /* Important for mobile panning/zooming */ }
+.sidebar { background-color: var(--primary-color); border-right: 1px solid var(--border-color); padding: 2rem; display: flex; flex-direction: column; gap: 1.5rem; transition: background-color 0.3s, border-color 0.3s; }
+.main-content { padding: 2rem; display: flex; flex-direction: column; gap: 1rem; }
+.canvas-wrapper { background: var(--primary-color); border-radius: 12px; border: 1px solid var(--border-color); padding: 1rem; display: flex; flex-direction: column; height: 85vh; box-shadow: 0 4px 12px var(--shadow-color); transition: background-color 0.3s, border-color 0.3s; }
+.canvas-container { flex-grow: 1; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; background-color: var(--secondary-color); border-radius: 8px; touch-action: none; }
 
 /* --- Canvas & Upload --- */
 canvas { cursor: crosshair; display: none; max-width: none; }
@@ -44,19 +44,34 @@ canvas { cursor: crosshair; display: none; max-width: none; }
 #imageLoader { display: none; }
 
 /* --- Controls --- */
-.controls-header { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; flex-wrap: wrap; gap: 1rem; }
+.controls-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.5rem; flex-wrap: wrap; gap: 1rem; }
 .upload-label { cursor: pointer; background-color: var(--accent-color); color: white; padding: 10px 20px; border-radius: 6px; font-weight: 500; transition: background-color 0.2s; display: inline-flex; align-items: center; gap: 8px; }
 .upload-label:hover { filter: brightness(1.1); }
 .upload-label[disabled] { background-color: var(--secondary-color); color: var(--font-color); opacity: 0.7; cursor: not-allowed; }
-.zoom-controls { display: flex; align-items: center; gap: 0.5rem; }
-.zoom-controls button { background: var(--secondary-color); color: var(--font-color); border: 1px solid var(--border-color); border-radius: 6px; width: 36px; height: 36px; cursor: pointer; transition: all 0.2s; display:flex; justify-content: center; align-items: center; }
-.zoom-controls button:hover { background-color: var(--border-color); }
-.zoom-controls button svg { width: 20px; height: 20px; stroke-width: 2.5px; }
+
+/* --- NEW: Zoom Panel --- */
+.zoom-panel { display: flex; align-items: center; gap: 10px; }
+.zoom-panel button { background: var(--secondary-color); color: var(--font-color); border: 1px solid var(--border-color); border-radius: 6px; width: 36px; height: 36px; cursor: pointer; transition: all 0.2s; display:flex; justify-content: center; align-items: center; }
+.zoom-panel button:hover { background-color: var(--border-color); }
+.zoom-panel button svg { width: 20px; height: 20px; stroke-width: 2.5px; pointer-events: none; }
+#zoom-slider { -webkit-appearance: none; appearance: none; width: 100px; height: 5px; background: var(--border-color); outline: none; border-radius: 5px; }
+#zoom-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 15px; height: 15px; background: var(--accent-color); cursor: pointer; border-radius: 50%; }
+#zoom-slider::-moz-range-thumb { width: 15px; height: 15px; background: var(--accent-color); cursor: pointer; border-radius: 50%; border: none; }
+#zoom-input { width: 60px; padding: 8px; border: 1px solid var(--border-color); border-radius: 6px; background: var(--primary-color); color: var(--font-color); text-align: center; font-size: 0.9rem; }
 
 /* --- Sidebar Content --- */
-.sidebar h1, .sidebar h2 { margin: 0; }
+.sidebar h1, .sidebar h2 { margin: 0; font-weight: 600; }
 .sidebar .logo { font-weight: 700; font-size: 1.8rem; }
 .sidebar .logo span { color: var(--accent-color); }
+
+/* --- NEW: Stationary Magnifier --- */
+#magnifier-container { padding-top: 1rem; border-top: 1px solid var(--border-color); }
+#magnifier-canvas { width: 100%; height: 150px; background-color: var(--secondary-color); border: 1px solid var(--border-color); border-radius: 8px; position: relative; }
+#magnifier-crosshair { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+#magnifier-crosshair::before, #magnifier-crosshair::after { content: ''; position: absolute; background-color: rgba(0,0,0,0.3); }
+#magnifier-crosshair::before { left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-50%); }
+#magnifier-crosshair::after { top: 50%; left: 0; height: 1px; width: 100%; transform: translateY(-50%); }
+
 .results-card { background: var(--primary-color); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem; opacity: 0; transform: translateY(10px); transition: opacity 0.4s ease, transform 0.4s ease, background-color 0.3s, border-color 0.3s; }
 .results-card.visible { opacity: 1; transform: translateY(0); }
 .results-header { display: flex; align-items: center; gap: 1rem; }
@@ -67,7 +82,7 @@ canvas { cursor: crosshair; display: none; max-width: none; }
 .history-header { display: flex; justify-content: space-between; align-items: center; }
 #clear-history { font-size: 0.75rem; color: var(--font-color); opacity: 0.6; cursor: pointer; }
 #clear-history:hover { opacity: 1; text-decoration: underline; }
-#history-list { list-style: none; padding: 0; margin: 0; max-height: 400px; overflow-y: auto; }
+#history-list { list-style: none; padding: 0; margin: 0; max-height: 250px; overflow-y: auto; }
 #history-list li { display: flex; align-items: center; gap: 1rem; padding: 0.75rem; border-bottom: 1px solid var(--border-color); cursor: pointer; border-radius: 4px; }
 #history-list li:hover { background-color: var(--secondary-color); }
 .history-swatch { width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0; border: 1px solid var(--border-color); }
@@ -79,8 +94,6 @@ canvas { cursor: crosshair; display: none; max-width: none; }
 /* --- Overlays & Helpers --- */
 #navigator { position: absolute; bottom: 15px; left: 15px; width: 150px; height: 100px; background-color: var(--secondary-color); border: 1px solid var(--border-color); border-radius: 4px; z-index: 10; background-size: contain; background-repeat: no-repeat; background-position: center; display: none; }
 #navigator-view { position: absolute; border: 1px solid var(--accent-color); background: rgba(93, 156, 236, 0.2); }
-#loupe { position: absolute; width: 150px; height: 150px; border-radius: 50%; border: 3px solid white; box-shadow: 0 5px 15px rgba(0,0,0,0.3); background-repeat: no-repeat; pointer-events: none; z-index: 10; }
-body.dark-mode #loupe { border-color: var(--primary-color); }
 .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 1000; }
 .toast { background-color: #212529; color: white; padding: 12px 20px; border-radius: 6px; margin-top: 10px; opacity: 0; transform: translateY(20px); transition: all 0.3s ease; box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
 .toast.show { opacity: 1; transform: translateY(0); }
@@ -113,6 +126,7 @@ footer a:hover { text-decoration: underline; }
     .canvas-wrapper { height: 60vh; padding: 0.5rem; }
     .controls-header { padding-bottom: 0.5rem; }
     #navigator { display: none !important; }
-    .zoom-controls button { width: 44px; height: 44px; } /* Larger tap targets */
+    .zoom-panel button { width: 44px; height: 44px; }
     #history-list { max-height: 200px; }
+    #magnifier-container { display: none; } /* Hide stationary magnifier on mobile */
 }

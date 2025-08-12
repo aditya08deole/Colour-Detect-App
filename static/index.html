@@ -19,6 +19,14 @@
                 <h1 class="logo">Color<span>Picker</span> Pro</h1>
                 <p>Perceptually accurate color detection.</p>
             </div>
+            
+            <div id="magnifier-container">
+                <h2>Magnifier</h2>
+                <div id="magnifier-canvas">
+                    <div id="magnifier-crosshair"></div>
+                </div>
+            </div>
+
             <div id="results-container">
                 <h2>Current Selection</h2>
                 <div id="results-card" class="results-card">
@@ -58,10 +66,12 @@
                         <span id="upload-text">Upload New Image</span>
                         <div id="upload-loader" class="loader" style="display: none;"></div>
                     </label>
-                    <div class="zoom-controls">
-                        <button id="zoom-in" title="Zoom In" aria-label="Zoom In"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
-                        <button id="zoom-out" title="Zoom Out" aria-label="Zoom Out"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
-                        <button id="reset-zoom" title="Reset" aria-label="Reset Zoom"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 2v6h6M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.5 12.5"/><path d="M2 12.5a10 10 0 0 0 18.5-1"/></svg></button>
+                    <div class="zoom-panel">
+                        <button id="zoom-out-btn" title="Zoom Out" aria-label="Zoom Out"><svg><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                        <input type="range" id="zoom-slider" min="1" max="30" value="1" step="0.1">
+                        <input type="number" id="zoom-input" value="100">
+                        <button id="zoom-in-btn" title="Zoom In" aria-label="Zoom In"><svg><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                        <button id="reset-zoom-btn" title="Reset" aria-label="Reset Zoom"><svg><path d="M2.5 2v6h6M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.5 12.5"/><path d="M2 12.5a10 10 0 0 0 18.5-1"/></svg></button>
                     </div>
                 </div>
                 <div class="canvas-container" id="canvas-container">
@@ -71,7 +81,6 @@
                     </div>
                     <canvas id="imageCanvas"></canvas>
                     <canvas id="pixelGridCanvas"></canvas>
-                    <div id="loupe" style="display: none;"></div>
                     <div id="navigator"><div id="navigator-view"></div></div>
                     <div id="loader-container" class="loader-container" style="display:none;"><div class="loader" style="width:50px; height:50px;"></div></div>
                 </div>
@@ -106,12 +115,17 @@
             historyList: document.getElementById('history-list'),
             historyEmptyState: document.getElementById('history-empty-state'),
             clearHistoryBtn: document.getElementById('clear-history'),
-            loupe: document.getElementById('loupe'),
+            magnifierCanvas: document.getElementById('magnifier-canvas'),
             navigator: document.getElementById('navigator'),
             navigatorView: document.getElementById('navigator-view'),
             toastContainer: document.getElementById('toast-container'),
             themeToggle: document.getElementById('theme-toggle'),
             paletteContainer: document.getElementById('palette-container'),
+            zoomSlider: document.getElementById('zoom-slider'),
+            zoomInput: document.getElementById('zoom-input'),
+            zoomInBtn: document.getElementById('zoom-in-btn'),
+            zoomOutBtn: document.getElementById('zoom-out-btn'),
+            resetZoomBtn: document.getElementById('reset-zoom-btn'),
             
             // State
             currentImageFile: null,
@@ -119,8 +133,9 @@
             originalImage: null,
             colorHistory: [],
             isPanning: false,
-            lastPointerEvent: null, // Store last mouse or touch event
+            lastPointerEvent: null,
             MAX_IMAGE_DIMENSION: 1920,
+            MAGNIFIER_ZOOM: 8,
 
             init() {
                 // File handling
@@ -139,12 +154,11 @@
                 // Universal pointer events for mouse and touch
                 const pointerMoveHandler = this.debounce((e) => {
                     this.lastPointerEvent = e;
-                    this.updateLoupe(e);
-                }, 5);
+                    this.updateMagnifier(e);
+                }, 10);
                 this.canvasContainer.addEventListener('pointerdown', (e) => { this.lastPointerEvent = e; });
                 this.canvasContainer.addEventListener('pointermove', pointerMoveHandler);
-                this.canvasContainer.addEventListener('pointerenter', () => { if(this.originalImage) this.loupe.style.display = 'block'; });
-                this.canvasContainer.addEventListener('pointerleave', () => { this.loupe.style.display = 'none'; });
+                this.canvasContainer.addEventListener('click', (e) => this.handleCanvasClick(e));
 
                 // Check for saved theme
                 if (localStorage.getItem('theme') === 'dark') {
@@ -154,104 +168,65 @@
             },
 
             // --- Event Handlers & Setup ---
-
-            debounce(func, delay) {
-                let timeout;
-                return function(...args) {
-                    const context = this;
-                    clearTimeout(timeout);
-                    timeout = setTimeout(() => func.apply(context, args), delay);
-                };
-            },
-
-            handleKeyDown(e) {
-                if (e.code === 'Space' && this.originalImage) {
-                    e.preventDefault();
-                    if (this.isPanning) return;
-                    this.isPanning = true;
-                    this.canvas.style.cursor = 'grab';
-                    this.panzoomInstance.setOptions({ disablePan: false });
-                }
-            },
-            
-            handleKeyUp(e) {
-                if (e.code === 'Space' && this.originalImage) {
-                    this.isPanning = false;
-                    this.canvas.style.cursor = 'crosshair';
-                    this.panzoomInstance.setOptions({ disablePan: true });
-                }
-            },
-
-            setupDragAndDrop() {
-                const preventDefaults = e => { e.preventDefault(); e.stopPropagation(); };
-                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => this.uploadArea.addEventListener(eventName, preventDefaults, false));
-                ['dragenter', 'dragover'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.add('dragover'), false));
-                ['dragleave', 'drop'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.remove('dragover'), false));
-                this.uploadArea.addEventListener('drop', (e) => this.handleFiles(e.dataTransfer.files), false);
-            },
+            debounce(func, delay) { let timeout; return function(...args) { const context = this; clearTimeout(timeout); timeout = setTimeout(() => func.apply(context, args), delay); }; },
+            handleKeyDown(e) { if (e.code === 'Space' && this.originalImage) { e.preventDefault(); if (this.isPanning) return; this.isPanning = true; this.canvas.style.cursor = 'grab'; this.panzoomInstance.setOptions({ disablePan: false }); } },
+            handleKeyUp(e) { if (e.code === 'Space' && this.originalImage) { this.isPanning = false; this.canvas.style.cursor = 'crosshair'; this.panzoomInstance.setOptions({ disablePan: true }); } },
+            setupDragAndDrop() { const preventDefaults = e => { e.preventDefault(); e.stopPropagation(); }; ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => this.uploadArea.addEventListener(eventName, preventDefaults, false)); ['dragenter', 'dragover'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.add('dragover'), false)); ['dragleave', 'drop'].forEach(eventName => this.uploadArea.addEventListener(eventName, () => this.uploadArea.classList.remove('dragover'), false)); this.uploadArea.addEventListener('drop', (e) => this.handleFiles(e.dataTransfer.files), false); },
 
             setupZoomControls() {
-                const zoomOptions = { animate: true };
-                document.getElementById('zoom-in').addEventListener('click', () => this.panzoomInstance?.zoomIn(zoomOptions));
-                document.getElementById('zoom-out').addEventListener('click', () => this.panzoomInstance?.zoomOut(zoomOptions));
-                document.getElementById('reset-zoom').addEventListener('click', () => this.panzoomInstance?.reset(zoomOptions));
+                this.zoomInBtn.addEventListener('click', () => this.panzoomInstance?.zoomIn());
+                this.zoomOutBtn.addEventListener('click', () => this.panzoomInstance?.zoomOut());
+                this.resetZoomBtn.addEventListener('click', () => this.panzoomInstance?.reset());
+
+                this.zoomSlider.addEventListener('input', (e) => {
+                    const scale = parseFloat(e.target.value);
+                    this.panzoomInstance.zoom(scale, { animate: false });
+                });
+
+                this.zoomInput.addEventListener('change', (e) => {
+                    const percentage = parseFloat(e.target.value);
+                    if (!isNaN(percentage)) {
+                        this.panzoomInstance.zoom(percentage / 100, { animate: true });
+                    }
+                });
             },
 
             // --- Image Loading and Processing ---
-
             handleFiles(files) {
                 const file = files[0];
                 if (!file || !file.type.startsWith('image/')) return;
-
                 this.uploadLabel.setAttribute('disabled', true);
                 this.uploadText.textContent = 'Processing...';
                 this.uploadLoader.style.display = 'block';
 
                 this.resizeImage(file, (resizedBlob, resizedDataUrl) => {
-                    if (!resizedBlob || !resizedDataUrl) {
-                        this.showToast('Error: Could not process image.', true);
-                        this.resetUI();
-                        return;
-                    }
-                    
+                    if (!resizedBlob || !resizedDataUrl) { this.showToast('Error: Could not process image.', true); this.resetUI(); return; }
                     this.currentImageFile = resizedBlob;
-                    
                     this.originalImage = new Image();
-                    this.originalImage.onerror = () => {
-                        this.showToast('Error: Could not load image file.', true);
-                        this.resetUI();
-                    };
+                    this.originalImage.onerror = () => { this.showToast('Error: Could not load image file.', true); this.resetUI(); };
                     this.originalImage.onload = () => {
                         this.canvas.width = this.originalImage.width;
                         this.canvas.height = this.originalImage.height;
                         this.pixelGridCanvas.width = this.canvasContainer.clientWidth;
                         this.pixelGridCanvas.height = this.canvasContainer.clientHeight;
-                        
                         this.ctx.drawImage(this.originalImage, 0, 0);
-                        
                         this.uploadArea.style.display = 'none';
                         this.canvas.style.display = 'block';
                         
                         if (this.panzoomInstance) this.panzoomInstance.destroy();
-                        this.panzoomInstance = Panzoom(this.canvas, {
-                            maxScale: 30,
-                            canvas: true,
-                            disablePan: true 
-                        });
+                        this.panzoomInstance = Panzoom(this.canvas, { maxScale: 30, canvas: true, disablePan: true });
                         
                         this.canvasContainer.addEventListener('wheel', (e) => {
                             e.preventDefault();
-                            this.panzoomInstance.zoomWithWheel(e, { 
-                                animate: false, // Animation can feel laggy with grid/loupe updates
-                                focal: { x: e.clientX, y: e.clientY }
-                            });
+                            this.panzoomInstance.zoomWithWheel(e, { animate: false, step: 0.1 });
                         });
 
-                        this.canvas.addEventListener('panzoomzoom', () => this.onTransformChange());
+                        this.canvas.addEventListener('panzoomzoom', (e) => this.onTransformChange(e));
                         this.canvas.addEventListener('panzoompan', () => this.onTransformChange());
                         
                         this.setupNavigator();
                         this.resetUploadButton();
+                        this.onTransformChange(); // Initial setup
                     };
                     this.originalImage.src = resizedDataUrl;
                 });
@@ -266,21 +241,13 @@
                     img.onload = () => {
                         let { width, height } = img;
                         const ratio = width / height;
-                        if (width > this.MAX_IMAGE_DIMENSION) {
-                            width = this.MAX_IMAGE_DIMENSION;
-                            height = width / ratio;
-                        }
-                        if (height > this.MAX_IMAGE_DIMENSION) {
-                            height = this.MAX_IMAGE_DIMENSION;
-                            width = height * ratio;
-                        }
-
+                        if (width > this.MAX_IMAGE_DIMENSION) { width = this.MAX_IMAGE_DIMENSION; height = width / ratio; }
+                        if (height > this.MAX_IMAGE_DIMENSION) { height = this.MAX_IMAGE_DIMENSION; width = height * ratio; }
                         const canvas = document.createElement('canvas');
                         canvas.width = width;
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
                         ctx.drawImage(img, 0, 0, width, height);
-                        
                         const dataUrl = canvas.toDataURL(file.type);
                         canvas.toBlob(blob => callback(blob, dataUrl), file.type, 0.9);
                     };
@@ -289,24 +256,25 @@
                 reader.readAsDataURL(file);
             },
 
-            onTransformChange() {
+            onTransformChange(e) {
                 this.updateNavigator();
                 this.drawPixelGrid();
-                if (this.lastPointerEvent) this.updateLoupe(this.lastPointerEvent);
+                if (this.lastPointerEvent) this.updateMagnifier(this.lastPointerEvent);
+                
+                // Sync zoom controls
+                const scale = this.panzoomInstance.getScale();
+                this.zoomSlider.value = scale;
+                this.zoomInput.value = Math.round(scale * 100);
             },
 
             handleCanvasClick(e) {
-                // Single point of interaction logic for both mouse and touch
                 const pointer = e.touches ? e.touches[0] : e;
                 if (!this.currentImageFile || !this.panzoomInstance || this.isPanning) return;
-
                 const rect = this.canvas.getBoundingClientRect();
                 const pan = this.panzoomInstance.getPan();
                 const scale = this.panzoomInstance.getScale();
                 const x = (pointer.clientX - rect.left - pan.x) / scale;
                 const y = (pointer.clientY - rect.top - pan.y) / scale;
-                
-                // Prevent click if coordinates are out of bounds
                 if (x < 0 || y < 0 || x > this.originalImage.width || y > this.originalImage.height) return;
 
                 this.loaderContainer.style.display = 'flex';
@@ -316,47 +284,27 @@
                 formData.append('y', Math.round(y));
                 fetch('/api/detect', { method: 'POST', body: formData })
                     .then(response => response.ok ? response.json() : response.json().then(err => Promise.reject(err)))
-                    .then(data => {
-                        this.loaderContainer.style.display = 'none';
-                        this.displayResults(data);
-                        this.addToHistory(data);
-                    })
-                    .catch(error => {
-                        this.loaderContainer.style.display = 'none';
-                        this.showToast(error.detail || 'Could not detect color.', true);
-                    });
+                    .then(data => { this.loaderContainer.style.display = 'none'; this.displayResults(data); this.addToHistory(data); })
+                    .catch(error => { this.loaderContainer.style.display = 'none'; this.showToast(error.detail || 'Could not detect color.', true); });
             },
 
             // --- UI Update Functions ---
-
-            updateLoupe(e) {
-                if (!this.originalImage || !this.panzoomInstance) return;
-                
-                const isTouchEvent = e.touches && e.touches.length > 0;
-                const pointer = isTouchEvent ? e.touches[0] : e;
-
+            updateMagnifier(e) {
+                if (!this.originalImage) return;
+                const pointer = e.touches ? e.touches[0] : e;
                 const rect = this.canvas.getBoundingClientRect();
                 const pan = this.panzoomInstance.getPan();
                 const scale = this.panzoomInstance.getScale();
-                
-                // BUG FIX: The coordinates on the *unscaled* canvas are needed for background-position.
-                // This correctly finds the pixel on the original image data.
                 const imgX = (pointer.clientX - rect.left - pan.x) / scale;
                 const imgY = (pointer.clientY - rect.top - pan.y) / scale;
+
+                this.magnifierCanvas.style.backgroundImage = `url(${this.originalImage.src})`;
+                this.magnifierCanvas.style.backgroundSize = `${this.originalImage.width * this.MAGNIFIER_ZOOM}px ${this.originalImage.height * this.MAGNIFIER_ZOOM}px`;
                 
-                // For mobile, offset the loupe so the finger doesn't block it.
-                let loupeX = pointer.clientX - 75;
-                let loupeY = pointer.clientY - 75;
-                if (isTouchEvent) {
-                    loupeY = pointer.clientY - 150 - 20; // 150 is loupe height, 20 is margin
-                }
-                
-                this.loupe.style.transform = `translate(${loupeX}px, ${loupeY}px)`;
-                
-                const zoomFactor = 4;
-                this.loupe.style.backgroundSize = `${this.originalImage.width * zoomFactor}px ${this.originalImage.height * zoomFactor}px`;
-                this.loupe.style.backgroundPosition = `-${imgX * zoomFactor - 75}px -${imgY * zoomFactor - 75}px`;
-                this.loupe.style.backgroundImage = `url(${this.originalImage.src})`;
+                // Center the background image on the cursor's position
+                const bgPosX = -(imgX * this.MAGNIFIER_ZOOM) + (this.magnifierCanvas.offsetWidth / 2);
+                const bgPosY = -(imgY * this.MAGNIFIER_ZOOM) + (this.magnifierCanvas.offsetHeight / 2);
+                this.magnifierCanvas.style.backgroundPosition = `${bgPosX}px ${bgPosY}px`;
             },
             
             drawPixelGrid() {
@@ -372,26 +320,14 @@
 
                 ctx.lineWidth = 1;
                 ctx.strokeStyle = document.body.classList.contains('dark-mode') ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)';
-
                 const left = pan.x % scale;
                 const top = pan.y % scale;
 
-                for (let x = left; x < canvasWidth; x += scale) {
-                    ctx.beginPath();
-                    ctx.moveTo(x + 0.5, 0);
-                    ctx.lineTo(x + 0.5, canvasHeight);
-                    ctx.stroke();
-                }
-                for (let y = top; y < canvasHeight; y += scale) {
-                    ctx.beginPath();
-                    ctx.moveTo(0, y + 0.5);
-                    ctx.lineTo(canvasWidth, y + 0.5);
-                    ctx.stroke();
-                }
+                for (let x = left; x < canvasWidth; x += scale) { ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, canvasHeight); ctx.stroke(); }
+                for (let y = top; y < canvasHeight; y += scale) { ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(canvasWidth, y + 0.5); ctx.stroke(); }
             },
 
-            // Other functions (resetUI, setupNavigator, displayResults, etc.) are assumed to be here...
-            // These functions are included for completeness and have minor updates for robustness.
+            // Other functions are assumed to be here...
             resetUI: function() { this.uploadArea.style.display = 'flex'; this.canvas.style.display = 'none'; this.navigator.style.display = 'none'; this.resetUploadButton(); this.pixelGridCtx.clearRect(0,0,this.pixelGridCanvas.width, this.pixelGridCanvas.height); },
             resetUploadButton: function() { this.uploadLabel.removeAttribute('disabled'); this.uploadText.textContent = 'Upload New Image'; this.uploadLoader.style.display = 'none'; },
             setupNavigator: function() { this.navigator.style.display = 'block'; this.navigator.style.backgroundImage = `url(${this.originalImage.src})`; this.updateNavigator(); },
