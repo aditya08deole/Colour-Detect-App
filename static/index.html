@@ -9,225 +9,28 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@panzoom/panzoom@4.5.1/dist/panzoom.min.js"></script>
-    <style>
-        :root {
-            --bg-color: #f8f9fa;
-            --primary-color: #ffffff;
-            --secondary-color: #e9ecef;
-            --accent-color: #007bff;
-            --font-color: #212529;
-            --border-color: #dee2e6;
-        }
-
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            color: var(--font-color);
-            margin: 0;
-            display: flex;
-            justify-content: center;
-        }
-
-        .app-container {
-            display: grid;
-            grid-template-columns: 280px 1fr;
-            width: 100%;
-            max-width: 1600px;
-            min-height: 100vh;
-        }
-
-        .sidebar {
-            background-color: var(--primary-color);
-            border-right: 1px solid var(--border-color);
-            padding: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
-        .sidebar h2 {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin: 0;
-        }
-        .sidebar .logo {
-            font-weight: 700;
-            font-size: 1.8rem;
-        }
-        .sidebar .logo span {
-            color: var(--accent-color);
-        }
-
-        .main-content {
-            padding: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
-
-        .canvas-wrapper {
-            background: var(--primary-color);
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            padding: 1rem;
-            display: flex;
-            flex-direction: column;
-            height: 60vh;
-        }
-        
-        .canvas-container {
-            flex-grow: 1;
-            overflow: hidden;
-            position: relative;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: var(--secondary-color);
-            border-radius: 8px;
-        }
-
-        canvas {
-            cursor: crosshair;
-            display: none;
-            max-width: none;
-        }
-        
-        .upload-area {
-            border: 2px dashed var(--border-color);
-            border-radius: 8px;
-            padding: 2rem;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            transition: all 0.3s ease;
-        }
-        .upload-area.dragover { border-color: var(--accent-color); background-color: #eef5ff; }
-
-        #imageLoader { display: none; }
-
-        .upload-label {
-            cursor: pointer;
-            background-color: var(--accent-color);
-            color: white;
-            padding: 10px 20px;
-            border-radius: 6px;
-            font-weight: 500;
-            transition: background-color 0.2s;
-        }
-        .upload-label:hover { background-color: #0056b3; }
-
-        .controls-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.5rem 0;
-        }
-
-        .zoom-controls button {
-            background: var(--secondary-color);
-            color: var(--font-color);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            width: 36px; height: 36px;
-            font-size: 1.2rem;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .zoom-controls button:hover { background-color: #ced4da; }
-
-        .results-card {
-            background: var(--primary-color);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 1.5rem;
-            opacity: 0;
-            transform: translateY(10px);
-            transition: opacity 0.4s ease, transform 0.4s ease;
-        }
-        .results-card.visible { opacity: 1; transform: translateY(0); }
-        
-        .results-header {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-        #color-box {
-            width: 80px;
-            height: 80px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-        }
-        #color-details p { margin: 0.25rem 0; font-size: 1rem; }
-        #color-details strong { font-weight: 600; }
-        .copy-btn {
-            background: none; border: none; color: var(--accent-color);
-            cursor: pointer; font-size: 0.8rem; opacity: 0.7;
-        }
-
-        #history-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        #history-list li {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 0.75rem;
-            border-bottom: 1px solid var(--border-color);
-            cursor: pointer;
-            border-radius: 4px;
-        }
-         #history-list li:hover { background-color: var(--secondary-color); }
-        .history-swatch {
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            flex-shrink: 0;
-            border: 1px solid var(--border-color);
-        }
-        .history-info { font-size: 0.9rem; }
-
-        .loader-container {
-            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(255, 255, 255, 0.8);
-            display: none; justify-content: center; align-items: center;
-            z-index: 10;
-        }
-        .loader {
-            border: 5px solid var(--secondary-color);
-            border-radius: 50%;
-            border-top: 5px solid var(--accent-color);
-            width: 50px; height: 50px;
-            animation: spin 1.5s linear infinite;
-        }
-
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
+    <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
 
     <div class="app-container">
         <aside class="sidebar">
             <div>
-                <h1 class="logo">Color<span>Picker</span></h1>
-                <p>An advanced color detector.</p>
+                <h1 class="logo">Color<span>Picker</span> Pro</h1>
+                <p>Perceptually accurate color detection.</p>
             </div>
             <div id="results-container">
                 <h2>Current Selection</h2>
-                <div id="results-card">
+                <div id="results-card" class="results-card">
                     <div class="results-header">
                         <div id="color-box"></div>
                         <div id="color-details">
                             <p><strong>Name:</strong> <span id="colorName">N/A</span></p>
-                            <p><strong>Hex:</strong> <span id="hexCode">N/A</span> <button class="copy-btn" onclick="colorApp.copyToClipboard('#hexCode')">copy</button></p>
-                            <p><strong>RGB:</strong> <span id="rgbValue">N/A</span> <button class="copy-btn" onclick="colorApp.copyToClipboard('#rgbValue')">copy</button></p>
+                            <p><strong>Hex:</strong> <span id="hexCode">N/A</span> <button class="copy-btn" onclick="colorApp.copyToClipboard('#hexCode', this)">copy</button></p>
+                            <p><strong>RGB:</strong> <span id="rgbValue">N/A</span> <button class="copy-btn" onclick="colorApp.copyToClipboard('#rgbValue', this)">copy</button></p>
                         </div>
                     </div>
+                    <div id="palette-container" class="palette-container"></div>
                 </div>
             </div>
             <div id="history-container">
@@ -236,6 +39,13 @@
                     <li style="justify-content: center; opacity: 0.6;">No colors picked yet.</li>
                 </ul>
             </div>
+             <div class="theme-switch-wrapper">
+                <label class="theme-switch" for="theme-toggle">
+                    <input type="checkbox" id="theme-toggle">
+                    <div class="slider round"></div>
+                </label>
+                <em>Dark Mode</em>
+            </div>
         </aside>
 
         <main class="main-content">
@@ -243,9 +53,9 @@
                 <div class="controls-header">
                     <label for="imageLoader" class="upload-label">Upload New Image</label>
                     <div class="zoom-controls">
-                        <button id="zoom-in" title="Zoom In">+</button>
-                        <button id="zoom-out" title="Zoom Out">-</button>
-                        <button id="reset-zoom" title="Reset">⟲</button>
+                        <button id="zoom-in" title="Zoom In" aria-label="Zoom In"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                        <button id="zoom-out" title="Zoom Out" aria-label="Zoom Out"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg></button>
+                        <button id="reset-zoom" title="Reset" aria-label="Reset Zoom"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 2v6h6M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.5 12.5"/><path d="M2 12.5a10 10 0 0 0 18.5-1"/></svg></button>
                     </div>
                 </div>
                 <div class="canvas-container" id="canvas-container">
@@ -254,11 +64,14 @@
                         <input type="file" id="imageLoader" accept="image/png, image/jpeg, image/webp">
                     </div>
                     <canvas id="imageCanvas"></canvas>
+                    <div id="loupe" style="display: none;"></div>
                     <div id="loader-container" class="loader-container"><div class="loader"></div></div>
                 </div>
             </div>
         </main>
     </div>
+    
+    <div id="toast-container"></div>
 
     <script>
         const colorApp = {
@@ -275,18 +88,35 @@
             hexCodeSpan: document.getElementById('hexCode'),
             rgbValueSpan: document.getElementById('rgbValue'),
             historyList: document.getElementById('history-list'),
+            loupe: document.getElementById('loupe'),
+            toastContainer: document.getElementById('toast-container'),
+            themeToggle: document.getElementById('theme-toggle'),
+            paletteContainer: document.getElementById('palette-container'),
             
             // State
             currentImageFile: null,
             panzoomInstance: null,
             originalImage: null,
             colorHistory: [],
+            MAX_IMAGE_DIMENSION: 1920, // Max width/height for client-side resizing
 
             init() {
                 this.imageLoader.addEventListener('change', (e) => this.handleFiles(e.target.files));
                 this.setupDragAndDrop();
                 this.setupZoomControls();
                 this.canvas.addEventListener('click', (e) => this.handleCanvasClick(e));
+                
+                // Loupe events
+                this.canvas.addEventListener('mousemove', (e) => this.updateLoupe(e));
+                this.canvas.addEventListener('mouseenter', () => { if(this.originalImage) this.loupe.style.display = 'block'; });
+                this.canvas.addEventListener('mouseleave', () => { this.loupe.style.display = 'none'; });
+
+                // Theme toggle events
+                this.themeToggle.addEventListener('change', () => this.toggleTheme());
+                if (localStorage.getItem('theme') === 'dark') {
+                    this.themeToggle.checked = true;
+                    document.body.classList.add('dark-mode');
+                }
             },
 
             setupDragAndDrop() {
@@ -312,42 +142,65 @@
             handleFiles(files) {
                 const file = files[0];
                 if (file && file.type.startsWith('image/')) {
-                    this.currentImageFile = file;
-                    const reader = new FileReader();
-                    reader.onload = (event) => {
-                        this.originalImage = new Image();
-                        this.originalImage.onload = () => {
-                            this.canvas.width = this.originalImage.width;
-                            this.canvas.height = this.originalImage.height;
-                            this.ctx.drawImage(this.originalImage, 0, 0);
-                            
-                            this.uploadArea.style.display = 'none';
-                            this.canvas.style.display = 'block';
-                            
-                            if (this.panzoomInstance) this.panzoomInstance.destroy();
-                            this.panzoomInstance = Panzoom(this.canvas, {
-                                maxScale: 10,
-                                canvas: true,
-                            });
-                            this.canvasContainer.addEventListener('wheel', this.panzoomInstance.zoomWithWheel);
+                    this.resizeImage(file, (resizedFile) => {
+                        this.currentImageFile = resizedFile;
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            this.originalImage = new Image();
+                            this.originalImage.onload = () => {
+                                this.canvas.width = this.originalImage.width;
+                                this.canvas.height = this.originalImage.height;
+                                this.ctx.drawImage(this.originalImage, 0, 0);
+                                
+                                this.uploadArea.style.display = 'none';
+                                this.canvas.style.display = 'block';
+                                
+                                if (this.panzoomInstance) this.panzoomInstance.destroy();
+                                this.panzoomInstance = Panzoom(this.canvas, { maxScale: 10, canvas: true });
+                                this.canvasContainer.addEventListener('wheel', this.panzoomInstance.zoomWithWheel);
+                            }
+                            this.originalImage.src = event.target.result;
                         }
-                        this.originalImage.src = event.target.result;
-                    }
-                    reader.readAsDataURL(file);
+                        reader.readAsDataURL(resizedFile);
+                    });
                 }
+            },
+            
+            resizeImage(file, callback) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        let { width, height } = img;
+                        if (width > height) {
+                            if (width > this.MAX_IMAGE_DIMENSION) {
+                                height *= this.MAX_IMAGE_DIMENSION / width;
+                                width = this.MAX_IMAGE_DIMENSION;
+                            }
+                        } else {
+                            if (height > this.MAX_IMAGE_DIMENSION) {
+                                width *= this.MAX_IMAGE_DIMENSION / height;
+                                height = this.MAX_IMAGE_DIMENSION;
+                            }
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        canvas.toBlob(callback, file.type, 0.9); // 90% quality
+                    }
+                    img.src = e.target.result;
+                }
+                reader.readAsDataURL(file);
             },
 
             handleCanvasClick(e) {
                 if (!this.currentImageFile || !this.panzoomInstance) return;
 
-                // **FIX:** Use the panzoom instance to get the correct coordinates
-                // This accounts for both panning (x/y movement) and scaling (zoom)
                 const rect = this.canvas.getBoundingClientRect();
                 const pan = this.panzoomInstance.getPan();
                 const scale = this.panzoomInstance.getScale();
-
-                // The formula to get the real coordinate on the image is:
-                // (mousePosition - elementOffset - pan) / scale
                 const x = (e.clientX - rect.left - pan.x) / scale;
                 const y = (e.clientY - rect.top - pan.y) / scale;
 
@@ -366,8 +219,25 @@
                     })
                     .catch(error => {
                         this.setLoading(false);
-                        alert(`Error: ${error.detail || 'Could not detect color.'}`);
+                        this.showToast(error.detail || 'Could not detect color.', true);
                     });
+            },
+
+            updateLoupe(e) {
+                if (!this.originalImage || !this.panzoomInstance) return;
+                const rect = this.canvas.getBoundingClientRect();
+                const pan = this.panzoomInstance.getPan();
+                const scale = this.panzoomInstance.getScale();
+                const imgX = (e.clientX - rect.left - pan.x) / scale;
+                const imgY = (e.clientY - rect.top - pan.y) / scale;
+                
+                this.loupe.style.left = `${e.clientX - 75}px`;
+                this.loupe.style.top = `${e.clientY - 75}px`;
+                
+                const zoomFactor = 4;
+                this.loupe.style.backgroundImage = `url(${this.originalImage.src})`;
+                this.loupe.style.backgroundSize = `${this.originalImage.width * scale * zoomFactor}px ${this.originalImage.height * scale * zoomFactor}px`;
+                this.loupe.style.backgroundPosition = `-${imgX * scale * zoomFactor - 75}px -${imgY * scale * zoomFactor - 75}px`;
             },
 
             setLoading(isLoading) {
@@ -380,15 +250,31 @@
                 this.rgbValueSpan.textContent = data.rgb;
                 this.colorBox.style.backgroundColor = data.detected_rgb;
                 this.resultsCard.classList.add('visible');
+                
+                // Fetch and display palette
+                const [r, g, b] = data.rgb.split(',').map(Number);
+                fetch(`/api/palette?r=${r}&g=${g}&b=${b}`)
+                    .then(res => res.json())
+                    .then(paletteData => {
+                        this.paletteContainer.innerHTML = '<strong>Shades & Tints:</strong>';
+                        const paletteDiv = document.createElement('div');
+                        paletteDiv.className = 'palette';
+                        const fullPalette = [...paletteData.tints.slice(0, 4), data.detected_rgb, ...paletteData.shades.slice(1)];
+                        fullPalette.forEach(color => {
+                            const swatch = document.createElement('div');
+                            swatch.className = 'palette-swatch';
+                            swatch.style.backgroundColor = color;
+                            paletteDiv.appendChild(swatch);
+                        });
+                        this.paletteContainer.appendChild(paletteDiv);
+                    });
             },
             
             addToHistory(data) {
                 const isDuplicate = this.colorHistory.some(c => c.hex_code === data.hex_code);
                 if (!isDuplicate) {
                     this.colorHistory.unshift(data);
-                    if (this.colorHistory.length > 20) {
-                        this.colorHistory.pop();
-                    }
+                    if (this.colorHistory.length > 20) this.colorHistory.pop();
                     this.renderHistory();
                 }
             },
@@ -398,23 +284,46 @@
                 this.historyList.innerHTML = '';
                 this.colorHistory.forEach(color => {
                     const li = document.createElement('li');
-                    li.innerHTML = `
-                        <div class="history-swatch" style="background-color: ${color.detected_rgb};"></div>
-                        <div class="history-info">
-                            <strong>${color.color_name}</strong><br>
-                            <span>${color.hex_code}</span>
-                        </div>
-                    `;
+                    li.innerHTML = `<div class="history-swatch" style="background-color: ${color.detected_rgb};"></div><div class="history-info"><strong>${color.color_name}</strong><br><span>${color.hex_code}</span></div>`;
                     li.onclick = () => this.displayResults(color);
                     this.historyList.appendChild(li);
                 });
             },
+            
+            showToast(message, isError = false) {
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                if (isError) toast.classList.add('error');
+                toast.textContent = message;
+                this.toastContainer.appendChild(toast);
+                setTimeout(() => toast.classList.add('show'), 10);
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    toast.addEventListener('transitionend', () => toast.remove());
+                }, 3000);
+            },
 
-            copyToClipboard(elementSelector) {
+            copyToClipboard(elementSelector, button) {
                 const text = document.querySelector(elementSelector).textContent;
                 navigator.clipboard.writeText(text).then(() => {
-                    alert(`Copied "${text}" to clipboard!`);
-                }, () => alert('Failed to copy text.'));
+                    const originalText = button.innerHTML;
+                    button.disabled = true;
+                    button.innerHTML = 'Copied!';
+                    setTimeout(() => {
+                        button.innerHTML = originalText;
+                        button.disabled = false;
+                    }, 2000);
+                }, () => this.showToast('Failed to copy text.', true));
+            },
+            
+            toggleTheme() {
+                if (this.themeToggle.checked) {
+                    document.body.classList.add('dark-mode');
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    document.body.classList.remove('dark-mode');
+                    localStorage.setItem('theme', 'light');
+                }
             }
         };
 
