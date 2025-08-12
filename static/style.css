@@ -34,17 +34,17 @@ body {
 .sidebar { background-color: var(--primary-color); border-right: 1px solid var(--border-color); padding: 2rem; display: flex; flex-direction: column; gap: 2rem; transition: background-color 0.3s, border-color 0.3s; }
 .main-content { padding: 2rem; display: flex; flex-direction: column; gap: 2rem; }
 .canvas-wrapper { background: var(--primary-color); border-radius: 12px; border: 1px solid var(--border-color); padding: 1rem; display: flex; flex-direction: column; height: 80vh; box-shadow: 0 4px 12px var(--shadow-color); transition: background-color 0.3s, border-color 0.3s; }
-.canvas-container { flex-grow: 1; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; background-color: var(--secondary-color); border-radius: 8px; }
+.canvas-container { flex-grow: 1; overflow: hidden; position: relative; display: flex; justify-content: center; align-items: center; background-color: var(--secondary-color); border-radius: 8px; touch-action: none; /* Important for mobile panning/zooming */ }
 
 /* --- Canvas & Upload --- */
 canvas { cursor: crosshair; display: none; max-width: none; }
-#pixelGridCanvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5; } /* NEW: Pixel Grid */
+#pixelGridCanvas { position: absolute; top: 0; left: 0; pointer-events: none; z-index: 5; }
 .upload-area { border: 2px dashed var(--border-color); border-radius: 8px; padding: 2rem; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: all 0.3s ease; }
 .upload-area.dragover { border-color: var(--accent-color); background-color: var(--secondary-color); }
 #imageLoader { display: none; }
 
 /* --- Controls --- */
-.controls-header { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; }
+.controls-header { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; flex-wrap: wrap; gap: 1rem; }
 .upload-label { cursor: pointer; background-color: var(--accent-color); color: white; padding: 10px 20px; border-radius: 6px; font-weight: 500; transition: background-color 0.2s; display: inline-flex; align-items: center; gap: 8px; }
 .upload-label:hover { filter: brightness(1.1); }
 .upload-label[disabled] { background-color: var(--secondary-color); color: var(--font-color); opacity: 0.7; cursor: not-allowed; }
@@ -105,11 +105,14 @@ footer:hover { opacity: 1; }
 footer a { color: inherit; text-decoration: none; }
 footer a:hover { text-decoration: underline; }
 
-/* --- Responsive --- */
+/* --- Responsive & Mobile --- */
 @media (max-width: 800px) {
     .app-container { grid-template-columns: 1fr; }
-    .sidebar { border-right: none; border-bottom: 1px solid var(--border-color); }
+    .sidebar { border-right: none; border-bottom: 1px solid var(--border-color); gap: 1.5rem; padding: 1.5rem; }
     .main-content { padding: 1rem; }
-    .canvas-wrapper { height: 60vh; }
+    .canvas-wrapper { height: 60vh; padding: 0.5rem; }
+    .controls-header { padding-bottom: 0.5rem; }
     #navigator { display: none !important; }
+    .zoom-controls button { width: 44px; height: 44px; } /* Larger tap targets */
+    #history-list { max-height: 200px; }
 }
